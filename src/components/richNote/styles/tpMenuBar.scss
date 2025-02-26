@@ -1,0 +1,71 @@
+.MuiButton-root {
+  min-width: 0 !important;
+}
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" -25, "opsz" 24;
+  font-size: 1.5rem;
+}
+
+.css-ytxsx-MuiFormControl-root {
+  margin: 0 !important;
+}
+
+.css-si86to-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input {
+  padding: 5px 14px !important;
+}
+
+/* 调整整体宽度 */
+.compact-picker {
+  //width: 210px !important; /* 自定义宽度 */
+  box-shadow: none !important;
+
+  .flexbox-fix {
+    display: none !important;
+  }
+}
+/* 通过父容器定位阴影层 */
+.compact-picker[style*="colorPicker"] ~ div > div:first-child {
+  box-shadow: none !important;
+}
+/* 或更精确的层级选择 */
+div[style*="position: relative; display: inline-block;"]
+  > div:first-child
+  > div {
+  box-shadow: none !important;
+}
+div[title="#FFFFFF"] {
+  box-shadow: none !important;
+  border: 1px solid #ddd !important; /* 可选：添加替代边框 */
+}
+/* 外层阴影 */
+.compact-picker ~ div > div:first-child {
+  box-shadow: none !important;
+}
+
+/* 白色色块阴影 */
+.compact-picker div[title="#FFFFFF"] {
+  box-shadow: none !important;
+}
+/* 为每个色块添加圆角边框 */
+.compact-picker div[title] {
+  border: 2px solid #fff !important;
+  border-radius: 3px !important;
+  margin-right: 0.5px !important;
+  //width: 25px !important;
+  //height: 25px !important;
+  //box-shadow: 0 0 2px rgba(0,0,0,0.3) !important;
+}
+
+/* 调整色块尺寸 */
+.compact-picker div[title] > div:first-child {
+  z-index: 100;
+  width: 17px !important; /* 色块宽度 */
+  height: 17px !important; /* 色块高度 */
+  color: white;
+  border: 2px solid skyblue;
+  left: -3px !important;
+  top: -3px !important;
+  border-radius: 4px !important;
+  background: none !important;
+  position: absolute !important;
+}

@@ -11,7 +11,7 @@ import MenuList from "@mui/material/MenuList";
 import "./style.scss";
 import { ChromePicker, CompactPicker } from "react-color";
 import { styled } from "@mui/material/styles";
-import TColorPicker from "@/components/richNote/tColorPicker";
+import TColorPicker from "@/components/richNote/subComponents/tColorPicker";
 import MaterialIcon from "@/components/materialIcon";
 const colors = [
   "transparent",
