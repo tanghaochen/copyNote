@@ -212,20 +212,36 @@ export default function complexTree({ onSelectedTagChange, setWorksItem }) {
           this.data[parentIdInTree].isFolder = true;
         }
 
-        // 触发UI更新
-        this.emitChange([parentIdInTree]);
-
-        // 延迟启动重命名
+        // 保存新创建的ID
         this.newItemID = newItemID;
 
-        setTimeout(() => {
-          // setSelectedItems([newItemID]);
+        // 先触发UI更新，确保节点已经被渲染
+        this.emitChange([parentIdInTree]);
 
+        // 延迟执行以确保UI已更新
+        // 更新组件状态 - 必须先做这一步
+        setSelectedItems([newItemID]);
+        setFocusedItem(newItemID);
+
+        // 再次触发UI更新以反映选中状态
+        this.emitChange(["root"]);
+
+        // 延迟启动重命名和树操作
+        setTimeout(() => {
           if (tree.current) {
-            tree.current.startRenamingItem(newItemID);
+            try {
+              // 使用树组件API选中和聚焦新项目
+              tree.current.startRenamingItem(newItemID);
+              setTimeout(() => {
+                tree.current.selectItems([newItemID]);
+                tree.current.focusItem(newItemID);
+              }, 0);
+              // 额外的UI更新确保重命名状态被反映
+              // this.emitChange([newItemID]);
+            } catch (err) {
+              console.error("无法操作树组件:", err);
+            }
           }
-          // 触发UI更新
-          this.emitChange([parentIdInTree]);
         }, 100);
       };
     }
@@ -513,11 +529,6 @@ export default function complexTree({ onSelectedTagChange, setWorksItem }) {
     const handleBlur = async (e) => {
       try {
         const newName = e.target.value.trim();
-        if (newName === "") {
-          console.warn("标签名不能为空");
-          return;
-        }
-
         const itemId = dataProvider.newItemID || item.index;
 
         // 更新数据库
