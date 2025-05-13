@@ -14,6 +14,12 @@ on:
       - ".github/**"
       - "!.github/workflows/build.yml"
 
+# 添加必要的权限
+permissions:
+  contents: read
+  packages: read
+  actions: write # 允许上传构件
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -31,17 +37,36 @@ jobs:
         with:
           node-version: 18
 
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get PNPM store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v3
+        name: Setup PNPM cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
       - name: Install Dependencies
-        run: npm install
+        run: pnpm install
 
       - name: Build Release Files
-        run: npm run build
+        run: pnpm run build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: release_on_${{ matrix. os }}
+          name: release_on_${{ matrix.os }}
           path: release/
           retention-days: 5
