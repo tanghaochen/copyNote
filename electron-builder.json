@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.electron.vite.react.app",
-  "productName": "ElectronViteReact",
+  "productName": "copyNote",
   "asar": true,
   "directories": {
     "output": "release/${version}"
@@ -35,7 +35,7 @@
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
     "deleteAppDataOnUninstall": false,
-    "shortcutName": "ElectronViteReact",
+    "shortcutName": "copyNote",
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true
   },
