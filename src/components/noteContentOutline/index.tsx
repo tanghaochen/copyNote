@@ -1,123 +1,295 @@
 import * as React from "react";
-import Tabs from "@mui/material/Tabs";
-import Tab from "@mui/material/Tab";
-import Box from "@mui/material/Box";
-import MenuBar from "../richNote/subComponents/tpMenu";
-import { extensions } from "./extensions";
-import {
-  EditorProvider,
-  useCurrentEditor,
-  useEditor,
-  EditorContent,
-} from "@tiptap/react";
-import { Editor } from "@tiptap/react";
-import "@/components/richNote/styles/index.scss";
+import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
+import "react-tabs/style/react-tabs.css";
+import "./styles/index.scss";
+import RichNote from "../richNote";
+import { useEffect, useState } from "react";
+import { worksListDB } from "@/database/worksLists";
+import { noteContentDB } from "@/database/noteContentDB";
+import { IconButton } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import { preferencesDB } from "@/database/perferencesDB";
+import ReactDOM from "react-dom";
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-function a11yProps(index: number) {
-  return {
-    id: `simple-tab-${index}`,
-    "aria-controls": `simple-tabpanel-${index}`,
-  };
+interface TabItem {
+  id: string;
+  label: string;
+  value: string;
+  content: string;
 }
 
-export default function BasicTabs() {
-  // 定义标签页数据
-  const [tabs, setTabs] = React.useState([
-    { id: 0, label: "Item One", content: "<h2>Initial Content 1</h2>" },
-    {
-      id: 1,
-      label: "Item Two",
-      content:
-        "<h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2> <h2>Hi there,</h2>",
-    },
-    { id: 2, label: "Item Three", content: "<h2>Initial Content 3</h2>" },
-  ]);
+interface BasicTabsProps {
+  worksItem: any;
+  setWorksItem: (item: any) => void;
+  setWorksList: (list: any[]) => void;
+  setCurrentEditor: (editor: any) => void;
+  setCurrentTab: (tab: any) => void;
+  setActiveRichTextEditor: (editor: any) => void;
+}
 
-  const [value, setValue] = React.useState(0);
-  const tpEditorRef = React.useRef<Editor | null>(null);
+export default function BasicTabs({
+  worksItem,
+  setWorksItem,
+  setWorksList,
+  setCurrentEditor,
+  setCurrentTab,
+  setActiveRichTextEditor,
+}: BasicTabsProps) {
+  const [tabs, setTabs] = React.useState<TabItem[]>([]);
+  const [selectedIndex, setSelectedIndex] = React.useState(0);
+  const [activeTabsItem, setActiveTabsItem] = React.useState<TabItem | null>(
+    null,
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragOverPosition, setDragOverPosition] = useState<
+    "left" | "right" | null
+  >(null);
 
-  // 处理标签切换
-  const handleChange = async (
-    event: React.SyntheticEvent,
-    newValue: number,
-  ) => {
-    // 保存当前内容
-    if (tpEditorRef.current) {
-      const currentContent = tpEditorRef.current.getHTML();
-      setTabs((prev) =>
-        prev.map((tab, index) =>
-          index === value ? { ...tab, content: currentContent } : tab,
-        ),
-      );
+  // 同步当前选中标签
+  useEffect(() => {
+    if (tabs.length > 0 && selectedIndex >= tabs.length) {
+      setSelectedIndex(tabs.length - 1);
     }
-    setValue(newValue);
-  };
+    const updateCurrentTab = async () => {
+      // 更新当前活动标签
+      if (
+        tabs.length > 0 &&
+        selectedIndex >= 0 &&
+        selectedIndex < tabs.length
+      ) {
+        const currentTab = tabs[selectedIndex];
+        setCurrentTab(currentTab);
+        setActiveTabsItem(currentTab); // 确保更新活动标签项
+        // 记录被选中的tab, 是合并重叠的方式更新{...currentTab}
+        // tab去掉content保存
+        const noContentTabs = tabs.map((tab) => ({
+          ...tab,
+          content: "",
+        }));
+        // console.log("更新当前活动标签", currentTab);
+        preferencesDB.updatePreferences({
+          openedTabs: noContentTabs,
+          selectedTab: currentTab,
+          selectedIndex: selectedIndex,
+        });
+      } else {
+        setCurrentTab(null);
+        setActiveTabsItem(null);
+      }
+    };
+    updateCurrentTab();
+  }, [tabs, selectedIndex, setCurrentTab]);
 
-  const [editorRef, setEditorRef] = React.useState<Editor | null>(null);
+  // 页面加载时，恢复上次打开的tab
+  useEffect(() => {
+    let isMounted = true;
 
-  let editor = useEditor({
-    editable: true,
-    extensions,
-    content: "<h2>Initial Content 1</h2>",
-  });
-  //
+    const fetchOpenedTabs = async () => {
+      try {
+        setIsLoading(true);
+        if (!isMounted) return;
 
-  setTimeout(() => {
-    setEditorRef(editor);
-  }, 0);
+        const preferencesRes = await preferencesDB.getPreferences();
+        if (!isMounted) return;
 
-  // 初始化编辑器内容
-  React.useEffect(() => {
-    if (editorRef) {
-      editorRef.commands.setContent(tabs[value].content);
-    }
-  }, [value, tabs]);
+        const { openedTabs, selectedIndex, selectedTab } = preferencesRes;
+        if (!openedTabs?.length || !isMounted) return;
 
-  const handleRichContent = (e: React.MouseEvent) => {
+        const openedTabsData = await Promise.all(
+          openedTabs.map(async (tab) => ({
+            ...tab,
+            content: await noteContentDB.getContentByNoteId(tab.id),
+          })),
+        );
+
+        if (!isMounted) return;
+
+        ReactDOM.unstable_batchedUpdates(() => {
+          setTabs(openedTabsData);
+          setActiveTabsItem(selectedTab);
+          setCurrentTab(selectedTab);
+          setSelectedIndex(selectedIndex);
+          setIsLoading(false);
+        });
+      } catch (error) {
+        console.error("Error fetching opened tabs:", error);
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchOpenedTabs();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 点击词条 添加新标签页
+  useEffect(() => {
+    const fetchAndAddTab = async () => {
+      if (!worksItem?.id) return;
+
+      const tabId = String(worksItem.id);
+      const existsIndex = tabs.findIndex((t) => t.value === tabId);
+
+      if (existsIndex !== -1) {
+        setSelectedIndex(existsIndex);
+        return;
+      }
+      // 获取笔记内容
+      const noteContent = await noteContentDB.getContentByNoteId(worksItem.id);
+
+      const newTab = {
+        id: tabId,
+        label: worksItem.title,
+        value: tabId,
+        content: noteContent || "",
+      };
+
+      setTabs((prev) => [...prev, newTab]);
+      // 记录打开的tab, 不记录content
+      const openedTabs = tabs?.map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+        value: tab.value,
+      }));
+      // console.log("openedTabs", openedTabs, tabs);
+      // 记录打开了哪些tab, 不记录content
+      preferencesDB.updatePreferences({
+        openedTabs: [...openedTabs, newTab],
+      });
+
+      setSelectedIndex(tabs.length); // 切换到新标签
+    };
+
+    fetchAndAddTab();
+  }, [worksItem]);
+
+  // 关闭标签页
+  const handleCloseTab = (tabValue, e) => {
     e.stopPropagation();
+    setTabs((prev) => {
+      const newTabs = prev.filter((t) => t.value !== tabValue);
+      return newTabs;
+    });
+  };
+
+  // useEffect(() => {
+  //   console.log("Tabs changed:", tabs);
+  // }, [tabs]);
+
+  // useEffect(() => {
+  //   console.log("ActiveTabsItem changed:", activeTabsItem);
+  // }, [activeTabsItem]);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData("text/plain", index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const isLeft = x < rect.width / 2;
+
+    setDragOverIndex(index);
+    setDragOverPosition(isLeft ? "left" : "right");
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+    setDragOverPosition(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    const dragIndex = parseInt(e.dataTransfer.getData("text/plain"));
+
+    if (dragIndex !== dropIndex) {
+      const newTabs = [...tabs];
+      const [draggedItem] = newTabs.splice(dragIndex, 1);
+
+      const insertIndex =
+        dragOverPosition === "left" ? dropIndex : dropIndex + 1;
+      newTabs.splice(insertIndex, 0, draggedItem);
+
+      setTabs(newTabs);
+    }
+
+    setDragOverIndex(null);
+    setDragOverPosition(null);
   };
 
   return (
-    <Box
-      sx={{
-        width: "100%",
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <div className="sticky top-0 left-0">
-        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-          <Tabs value={value} onChange={handleChange}>
-            {tabs.map((tab, index) => (
-              <Tab key={tab.id} label={tab.label} {...a11yProps(index)} />
-            ))}
-          </Tabs>
-        </Box>
-
-        <MenuBar editor={editorRef} />
-      </div>
-
-      <Box sx={{ flex: 1, position: "relative" }} ref={tpEditorRef}>
-        <div
-          className="richNoteContent absolute top-0 left-0 right-0 bottom-0"
-          onClick={handleRichContent}
-        >
+    <div className="flex-1 relative overflow-hidden">
+      <Tabs
+        selectedIndex={selectedIndex}
+        onSelect={(index) => setSelectedIndex(index)}
+        forceRenderTabPanel
+      >
+        <TabList className="flex flex-wrap m-0 p-0 bg-gray-100">
           {tabs.map((tab, index) => (
-            <EditorContent
-              className="h-full"
-              key={index}
-              value={value}
-              editor={editorRef}
-            />
+            <Tab key={tab.value}>
+              {dragOverIndex === index && (
+                <div
+                  className={`absolute top-0 h-full w-1 bg-blue-500 z-10 ${
+                    dragOverPosition === "left" ? "left-[-1px]" : "right-[-1px]"
+                  }`}
+                />
+              )}
+              <div className="relative flex">
+                <div
+                  className="custom-tab-content group"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                >
+                  <span>{tab.label || "未命名"}</span>
+                  {/* 关闭按钮: 默认隐藏，hover或active时显示 */}
+                  <IconButton
+                    size="small"
+                    className={`custom-close-button ${
+                      selectedIndex === index ? "visible" : "invisible"
+                    } group-hover:visible`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCloseTab(tab.value, e);
+                    }}
+                    sx={{
+                      p: 0,
+                      ml: 1,
+                      "&:hover": { backgroundColor: "rgba(0,0,0,0.08)" },
+                    }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </div>
+              </div>
+            </Tab>
+          ))}
+        </TabList>
+
+        <div className={"w-auto"}>
+          {tabs.map((tab) => (
+            <TabPanel key={tab.value}>
+              <RichNote
+                activeTabsItem={activeTabsItem}
+                tabItem={tab}
+                setTabs={setTabs}
+                setActiveTabsItem={setActiveTabsItem}
+                setWorksList={setWorksList}
+                setCurrentEditor={setCurrentEditor}
+                setActiveRichTextEditor={setActiveRichTextEditor}
+              />
+            </TabPanel>
           ))}
         </div>
-      </Box>
-    </Box>
+      </Tabs>
+    </div>
   );
 }

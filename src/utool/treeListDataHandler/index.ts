@@ -1,16 +1,40 @@
 export class treeList {
+
+
+    // 高性能版本（O(n)复杂度）
+    static aryToTree(items) {
+        const map = {};
+        const roots = [];
+
+        // 创建哈希映射
+        items.forEach(item => {
+            map[item.id] = { ...item, children: [] };
+        });
+
+        // 构建树
+        items.forEach(item => {
+            if (item.parent_id !== 0 && map[item.parent_id]) {
+                map[item.parent_id].children.push(map[item.id]);
+            } else {
+                roots.push(map[item.id]);
+            }
+        });
+
+        return roots;
+    }
+
     /**
      * @param treeData: 树形数据结构
      * @param newNode: 新节点
      * @param position: 包含插入位置的对象，包含节点的 id 和插入位置 location（可选值: 'before', 'after', 'child'）
      */
     static insertNode(treeData, newNode, position) {
-        const { id, location } = position;
+        const {id, location} = position;
 
         function traverseAndInsert(nodes) {
             return nodes.map(node => {
                 if (node.id === id) {
-                    const newNodeCopy = { ...node };
+                    const newNodeCopy = {...node};
 
                     switch (location) {
                         case 'before':
@@ -39,6 +63,7 @@ export class treeList {
         // 返回更新后的树形数据结构
         return traverseAndInsert(treeData);
     }
+
     // 从树形数据结构中查找节点
     static findById(treeData, id) {
         function traverseAndFind(nodes) {
@@ -52,6 +77,7 @@ export class treeList {
             }
             return null;
         }
+
         if (!treeData?.length) return {};
         return traverseAndFind(treeData);
     }

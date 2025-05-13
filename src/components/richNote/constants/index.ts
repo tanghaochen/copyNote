@@ -47,14 +47,20 @@ export const textAlignTypeList = [
   {
     iconName: "format_align_left",
     extType: "bulletList",
+    toggleFunName: "setTextAlign",
+    toggleFunParam: "left",
   },
   {
     iconName: "format_align_center",
     extType: "OrderedList",
+    toggleFunName: "setTextAlign",
+    toggleFunParam: "center",
   },
   {
     iconName: "format_align_right",
     extType: "TaskList",
+    toggleFunName: "setTextAlign",
+    toggleFunParam: "right",
   },
 ];
 export const extTypeList = [
