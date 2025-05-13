@@ -103,35 +103,63 @@ jobs:
         shell: pwsh
         run: |
           # 创建存储构建文件的目录
-          mkdir -p ./release-files
+          New-Item -ItemType Directory -Path ./release-files -Force
+
+          # 获取package.json中的应用名称
+          $packageJson = Get-Content -Raw -Path package.json | ConvertFrom-Json
+          $version = "${{ steps.version.outputs.NEW_VERSION }}"
+          $appVersion = "${{ steps.version.outputs.NEW_VERSION }}"
 
           # 查找最新版本目录
-          $versionDir = Get-ChildItem -Path ./release -Directory | Sort-Object -Descending | Select-Object -First 1
-          echo "最新版本目录: $($versionDir.FullName)"
+          $versionDir = Get-ChildItem -Path ./release -Directory | Sort-Object -Property { [version]$_.Name } -Descending | Select-Object -First 1
 
-          # 查找安装程序文件
-          $exeFile = Get-ChildItem -Path $versionDir.FullName -Filter "*_${{ steps.version.outputs.NEW_VERSION }}.exe" | Select-Object -First 1
-          echo "找到安装程序: $($exeFile.FullName)"
-
-          if ($exeFile) {
-            # 复制安装程序到发布目录
-            Copy-Item -Path $exeFile.FullName -Destination "./release-files/"
-            echo "INSTALLER_PATH=./release-files/$($exeFile.Name)" >> $env:GITHUB_OUTPUT
-            echo "INSTALLER_NAME=$($exeFile.Name)" >> $env:GITHUB_OUTPUT
-          } else {
-            echo "错误: 未找到安装程序文件!"
+          if (-not $versionDir) {
+            echo "错误: 未找到版本目录!"
+            Get-ChildItem -Path ./release -Recurse
             exit 1
           }
 
-          # 复制自动更新文件
-          $ymlFile = Get-ChildItem -Path $versionDir.FullName -Filter "*.yml" | Select-Object -First 1
-          if ($ymlFile) {
-            Copy-Item -Path $ymlFile.FullName -Destination "./release-files/"
-            echo "YML_PATH=./release-files/$($ymlFile.Name)" >> $env:GITHUB_OUTPUT
+          echo "最新版本目录: $($versionDir.FullName)"
+
+          # 查找所有EXE文件
+          $exeFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.exe"
+
+          if ($exeFiles.Count -eq 0) {
+            echo "错误: 未找到安装程序文件!"
+            Get-ChildItem -Path $versionDir.FullName -Recurse
+            exit 1
           }
 
-          $blockmapFile = Get-ChildItem -Path $versionDir.FullName -Filter "*.blockmap" | Select-Object -First 1
-          if ($blockmapFile) {
+          echo "找到的安装程序文件:"
+          $exeFiles | ForEach-Object { echo "- $($_.Name)" }
+
+          # 选择第一个EXE文件
+          $exeFile = $exeFiles | Select-Object -First 1
+          echo "选择的安装程序: $($exeFile.FullName)"
+
+          # 复制安装程序到发布目录
+          Copy-Item -Path $exeFile.FullName -Destination "./release-files/"
+          echo "INSTALLER_PATH=./release-files/$($exeFile.Name)" >> $env:GITHUB_OUTPUT
+          echo "INSTALLER_NAME=$($exeFile.Name)" >> $env:GITHUB_OUTPUT
+
+          # 复制自动更新文件
+          $ymlFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.yml"
+
+          foreach ($ymlFile in $ymlFiles) {
+            Copy-Item -Path $ymlFile.FullName -Destination "./release-files/"
+            echo "找到YML文件: $($ymlFile.Name)"
+          }
+
+          if ($ymlFiles.Count -gt 0) {
+            $latestYml = $ymlFiles | Where-Object { $_.Name -eq "latest.yml" -or $_.Name -contains "latest" } | Select-Object -First 1
+            if (-not $latestYml) { $latestYml = $ymlFiles | Select-Object -First 1 }
+            echo "YML_PATH=./release-files/$($latestYml.Name)" >> $env:GITHUB_OUTPUT
+          }
+
+          # 复制blockmap文件
+          $blockmapFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.blockmap"
+
+          foreach ($blockmapFile in $blockmapFiles) {
             Copy-Item -Path $blockmapFile.FullName -Destination "./release-files/"
             echo "BLOCKMAP_PATH=./release-files/$($blockmapFile.Name)" >> $env:GITHUB_OUTPUT
           }
