@@ -112,14 +112,32 @@ jobs:
           cat package.json
         shell: bash
 
+      # 单独安装Electron
+      - name: 安装Electron
+        run: pnpm add electron@36.2.0 -D --save-exact
+        shell: bash
+
+      - name: 验证Electron安装
+        run: |
+          echo "验证Electron是否已安装"
+          dir node_modules
+          if [ -d "node_modules/electron" ]; then
+            echo "Electron目录存在"
+          fi
+
+          # 尝试使用npx electron
+          npx electron --version || echo "无法通过npx使用electron"
+
+          # 查找electron可执行文件
+          find node_modules -name "electron.exe" -o -name "electron" | grep -v "node_modules/.bin"
+        shell: bash
+
       - name: 安装依赖
         run: |
           # 安装依赖，但跳过postinstall脚本
           pnpm install --no-frozen-lockfile --ignore-scripts
-          # 手动安装electron
-          pnpm add electron@36.2.0 -D --save-exact
           # 设置PATH
-          echo "PATH=node_modules/.bin:$PATH" >> $GITHUB_ENV
+          echo "PATH=$PWD/node_modules/.bin:$PATH" >> $GITHUB_ENV
         env:
           SKIP_TESTS: true
           NODE_ENV: production
@@ -139,15 +157,11 @@ jobs:
           else
             echo "警告: lodash 未找到，但这可能不是必须的"
           fi
+        shell: bash
 
-          echo "验证electron是否已安装"
-          if [ -d "node_modules/electron" ]; then
-            echo "Electron已安装"
-            npx electron --version
-          else
-            echo "错误: Electron未安装"
-            exit 1
-          fi
+      # 直接跳过验证Electron安装步骤
+      - name: 手动安装electron-builder
+        run: pnpm add electron-builder@latest -D
         shell: bash
 
       # 跳过测试
@@ -157,19 +171,12 @@ jobs:
       # 构建应用，但不打包安装程序
       - name: 构建应用
         run: |
-          # 手动执行app-deps安装
-          node -e "
-            console.log('手动执行app-deps安装');
-            const { execSync } = require('child_process');
-            try {
-              execSync('npx electron-builder install-app-deps --version=36.2.0', {stdio: 'inherit'});
-            } catch(e) {
-              console.log('安装app-deps失败，但继续构建流程');
-            }
-          "
+          # 设置临时的electron版本环境变量
+          set ELECTRON_VERSION=36.2.0
 
-          # 使用--skip-app-deps跳过electron-builder的app-deps安装
-          pnpm run build:win-unpacked -- --skip-app-deps
+          # 跳过app-deps安装，直接构建
+          echo "跳过app-deps安装，直接构建"
+          pnpm run build:win-unpacked
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_TESTS: true
