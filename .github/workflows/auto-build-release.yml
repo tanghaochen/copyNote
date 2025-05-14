@@ -17,6 +17,8 @@ on:
 permissions:
   contents: write # 为workflow添加写入仓库内容的权限
   packages: write # 为workflow添加发布包的权限
+  actions: write # 允许工作流操作actions (如上传构件)
+  id-token: write # 用于身份验证
 
 jobs:
   # 第一步：更新版本号并创建标签
@@ -207,7 +209,7 @@ jobs:
 
       # 上传构建产物
       - name: 上传构建产物
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.2
         with:
           name: release-${{ matrix.os }}
           path: ./release-files
@@ -221,7 +223,7 @@ jobs:
 
     steps:
       - name: 下载所有构建产物
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.0.2
         with:
           path: ./all-artifacts
 
