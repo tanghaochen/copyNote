@@ -69,6 +69,9 @@ jobs:
       - name: 全局安装electron-builder
         run: pnpm add -g electron-builder
 
+      - name: 安装Electron
+        run: pnpm add electron@36.2.0 --save-exact
+
       - name: 安装依赖
         run: |
           pnpm install --no-frozen-lockfile
@@ -97,6 +100,9 @@ jobs:
 
           echo "验证electron-builder是否可用"
           where electron-builder || echo "electron-builder在PATH中未找到"
+
+          echo "验证electron是否已安装"
+          npx electron --version || echo "electron未找到"
         shell: bash
 
       # 跳过测试
@@ -106,13 +112,14 @@ jobs:
       # 构建应用，但不打包安装程序
       - name: 构建应用
         run: |
-          npx electron-builder install-app-deps
+          npx electron-builder install-app-deps --version=36.2.0
           pnpm run build:win-unpacked
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_TESTS: true
           NODE_ENV: production
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: true
+          ELECTRON_VERSION: 36.2.0
 
       # 在PR上添加评论
       - name: 添加PR评论
