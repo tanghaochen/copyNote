@@ -1,0 +1,4 @@
+provider: github
+owner: tanghaochen
+repo: copyNote
+updaterCacheDirName: copyNote-updater

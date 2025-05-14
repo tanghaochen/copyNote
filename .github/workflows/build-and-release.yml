@@ -122,12 +122,17 @@ jobs:
           echo "最新版本目录: $($versionDir.FullName)"
 
           # 查找所有EXE文件
-          $exeFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.exe"
+          $exeFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.exe" | Where-Object { $_.Name -match "copyNote" }
 
           if ($exeFiles.Count -eq 0) {
-            echo "错误: 未找到安装程序文件!"
-            Get-ChildItem -Path $versionDir.FullName -Recurse
-            exit 1
+            echo "尝试查找所有EXE文件..."
+            $exeFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.exe"
+            
+            if ($exeFiles.Count -eq 0) {
+              echo "错误: 未找到安装程序文件!"
+              Get-ChildItem -Path $versionDir.FullName -Recurse
+              exit 1
+            }
           }
 
           echo "找到的安装程序文件:"
@@ -142,19 +147,47 @@ jobs:
           echo "INSTALLER_PATH=./release-files/$($exeFile.Name)" >> $env:GITHUB_OUTPUT
           echo "INSTALLER_NAME=$($exeFile.Name)" >> $env:GITHUB_OUTPUT
 
-          # 复制自动更新文件
+          # 复制并重命名自动更新文件
           $ymlFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.yml"
+          $foundLatestYml = $false
 
           foreach ($ymlFile in $ymlFiles) {
+            if ($ymlFile.Name -eq "latest.yml") {
+              $foundLatestYml = $true
+              echo "找到latest.yml文件"
+            }
             Copy-Item -Path $ymlFile.FullName -Destination "./release-files/"
-            echo "找到YML文件: $($ymlFile.Name)"
+            echo "复制YML文件: $($ymlFile.Name)"
           }
 
-          if ($ymlFiles.Count -gt 0) {
-            $latestYml = $ymlFiles | Where-Object { $_.Name -eq "latest.yml" -or $_.Name -contains "latest" } | Select-Object -First 1
-            if (-not $latestYml) { $latestYml = $ymlFiles | Select-Object -First 1 }
-            echo "YML_PATH=./release-files/$($latestYml.Name)" >> $env:GITHUB_OUTPUT
+          # 如果没有找到latest.yml，但找到了其他yml文件，复制一份并重命名为latest.yml
+          if (-not $foundLatestYml -and $ymlFiles.Count -gt 0) {
+            echo "未找到latest.yml，使用第一个yml文件创建..."
+            $firstYml = $ymlFiles | Select-Object -First 1
+            Copy-Item -Path $firstYml.FullName -Destination "./release-files/latest.yml"
+            echo "创建了latest.yml文件 (从 $($firstYml.Name))"
+            $foundLatestYml = $true
           }
+
+          # 即使这样也没有找到yml文件，创建一个基本的latest.yml
+          if (-not $foundLatestYml) {
+            echo "警告: 没有找到任何YML文件，创建基本的latest.yml..."
+            $exeName = $exeFile.Name
+            $version = $appVersion
+            $ymlContent = @"
+version: $version
+files:
+  - url: $exeName
+    sha512: 0
+path: $exeName
+sha512: 0
+releaseDate: $(Get-Date -Format "yyyy-MM-dd")
+"@
+            Set-Content -Path "./release-files/latest.yml" -Value $ymlContent
+            echo "创建了基本的latest.yml文件"
+          }
+
+          echo "YML_PATH=./release-files/latest.yml" >> $env:GITHUB_OUTPUT
 
           # 复制blockmap文件
           $blockmapFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.blockmap"
@@ -166,7 +199,9 @@ jobs:
 
           # 列出要发布的文件
           echo "要发布的文件:"
-          Get-ChildItem -Path "./release-files" | Format-Table Name, Length -AutoSize
+          Get-ChildItem -Path "./release-files" | ForEach-Object { 
+            echo "- $($_.Name) ($('{0:N2}' -f ($_.Length/1MB)) MB)"
+          }
 
       - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v1

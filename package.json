@@ -15,6 +15,7 @@
   "scripts": {
     "dev": "chcp 65001 | vite",
     "dev:clean": ".\\scripts\\dev-clean.bat",
+    "dev:update": "cross-env ELECTRON_IS_DEV=0 npm run dev",
     "build": "vite build && electron-builder",
     "build:win": "vite build && electron-builder --win --x64",
     "build:mac": "vite build && electron-builder --mac",
@@ -27,7 +28,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "release": "node scripts/release.js",
-    "test-build": "node scripts/test-build.js"
+    "test-build": "node scripts/test-build.js",
+    "test-update": "node scripts/test-update.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -108,6 +110,7 @@
     "electron-rebuild": "^3.2.9",
     "jsdom": "^26.1.0",
     "loadash": "^1.0.0",
+    "node-fetch": "^3.3.2",
     "postcss": "^8.5.3",
     "postcss-import": "^16.1.0",
     "react": "^18.3.1",
@@ -119,6 +122,7 @@
     "vite": "^5.4.14",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.6",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "cross-env": "^7.0.3"
   }
 }
