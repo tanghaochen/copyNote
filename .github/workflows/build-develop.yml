@@ -1,0 +1,89 @@
+name: 开发分支构建测试
+
+on:
+  push:
+    branches:
+      - develop
+      - "feature/**"
+    paths-ignore:
+      - "**/*.md"
+      - ".vscode/**"
+      - ".idea/**"
+      - ".gitignore"
+
+  pull_request:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    name: 构建和测试
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false # 即使一个平台构建失败，也继续其他平台的构建
+      matrix:
+        os: [windows-latest] # 开发分支只在Windows上测试以节省时间，可以根据需要添加其他平台
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: 安装 PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: 获取 PNPM 存储目录
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v3
+        name: 设置 PNPM 缓存
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: 安装依赖
+        run: pnpm install
+
+      # 运行测试
+      - name: 运行测试
+        run: pnpm test
+
+      # 构建应用，但不打包安装程序
+      - name: 构建应用
+        run: pnpm run build:win-unpacked
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 在PR上添加评论
+      - name: 添加PR评论
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { issue: { number: issue_number }, repo: { owner, repo } } = context;
+            github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: `✅ 构建测试通过！`
+            });

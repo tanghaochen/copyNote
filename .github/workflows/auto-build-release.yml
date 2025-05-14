@@ -4,14 +4,27 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*" # 当创建版本标签时触发
     # 以下文件变更时不触发工作流
     paths-ignore:
       - "**/*.md"
       - ".vscode/**"
       - ".idea/**"
       - ".gitignore"
-      - ".github/**"
-      - "!.github/workflows/auto-build-release.yml"
+
+  # 允许手动触发工作流
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: "版本更新类型 (patch, minor, major)"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 # 添加权限配置
 permissions:
@@ -44,9 +57,21 @@ jobs:
           # 解析版本号
           $major, $minor, $patch = $currentVersion.Split('.')
 
-          # 增加补丁版本号
-          $newPatch = [int]$patch + 1
-          $newVersion = "$major.$minor.$newPatch"
+          # 根据输入更新版本号
+          $versionType = "${{ github.event.inputs.version_type }}"
+          if ($versionType -eq "major") {
+            $major = [int]$major + 1
+            $minor = 0
+            $patch = 0
+          } elseif ($versionType -eq "minor") {
+            $minor = [int]$minor + 1
+            $patch = 0
+          } else {
+            # 默认为patch更新
+            $patch = [int]$patch + 1
+          }
+
+          $newVersion = "$major.$minor.$patch"
 
           # 更新package.json中的版本号
           $packageJson = Get-Content -Raw -Path package.json | ConvertFrom-Json

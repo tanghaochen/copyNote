@@ -162,3 +162,24 @@ git push origin main
 4. 确保新版本号大于当前版本号（在`package.json`中设置）
 
 更多信息请参考[electron-builder 自动更新文档](https://www.electron.build/auto-update)
+
+## 开发指南
+
+### Git 分支策略
+
+本项目采用规范的 Git 分支策略：
+
+- **main**: 生产环境分支，包含已发布的稳定版本
+- **develop**: 开发主分支，包含已完成但未发布的功能
+- **feature/xxx**: 特性分支，用于开发单个功能
+
+详细的工作流程请查看 [Git 工作流程文档](./documents/git-workflow.md)
+
+### 自动构建和发布
+
+本项目使用 GitHub Actions 进行自动构建和发布：
+
+- 推送到开发分支时，会自动构建和测试
+- 推送到 main 分支或创建标签时，会自动构建、打包并发布
+
+详细的自动构建和发布流程请查看 [自动构建和更新指南](./documents/auto-build-update.md)
