@@ -1,22 +1,45 @@
-name: 自动更新版本并发布
+name: 自动构建和发布
 
 on:
   push:
     branches:
-      - main # 当推送到main分支时触发
+      - main
+    tags:
+      - "v*" # 当创建版本标签时触发
+    # 以下文件变更时不触发工作流
     paths-ignore:
-      - "**/*.md" # 忽略markdown文件变更
-      - "package.json" # 忽略package.json的变更，避免版本提交后再次触发
+      - "**/*.md"
+      - ".vscode/**"
+      - ".idea/**"
+      - ".gitignore"
+
+  # 允许手动触发工作流
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: "版本更新类型 (patch, minor, major)"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 # 添加权限配置
 permissions:
   contents: write # 为workflow添加写入仓库内容的权限
-  packages: write
+  packages: write # 为workflow添加发布包的权限
+  actions: write # 允许工作流操作actions (如上传构件)
+  id-token: write # 用于身份验证
 
 jobs:
-  version-and-release:
-    name: 更新版本并发布
-    runs-on: windows-latest # 固定使用Windows构建
+  # 第一步：更新版本号并创建标签
+  update-version:
+    name: 更新版本号
+    runs-on: windows-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.NEW_VERSION }}
 
     steps:
       - name: 检出代码
@@ -34,9 +57,21 @@ jobs:
           # 解析版本号
           $major, $minor, $patch = $currentVersion.Split('.')
 
-          # 增加补丁版本号
-          $newPatch = [int]$patch + 1
-          $newVersion = "$major.$minor.$newPatch"
+          # 根据输入更新版本号
+          $versionType = "${{ github.event.inputs.version_type }}"
+          if ($versionType -eq "major") {
+            $major = [int]$major + 1
+            $minor = 0
+            $patch = 0
+          } elseif ($versionType -eq "minor") {
+            $minor = [int]$minor + 1
+            $patch = 0
+          } else {
+            # 默认为patch更新
+            $patch = [int]$patch + 1
+          }
+
+          $newVersion = "$major.$minor.$patch"
 
           # 更新package.json中的版本号
           $packageJson = Get-Content -Raw -Path package.json | ConvertFrom-Json
@@ -66,6 +101,31 @@ jobs:
           branch: ${{ github.ref }}
           tags: true
 
+  # 第二步：在不同平台构建应用
+  build:
+    name: 构建 ${{ matrix.os }} 应用
+    needs: update-version
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false # 即使一个平台构建失败，也继续其他平台的构建
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          ref: main # 确保获取最新代码
+          fetch-depth: 0
+
+      - name: 获取最新的tag
+        id: get_tag
+        run: |
+          git fetch --tags
+          echo "TAG_NAME=v${{ needs.update-version.outputs.new_version }}" >> $GITHUB_OUTPUT
+        shell: bash
+
       - name: 设置 Node.js
         uses: actions/setup-node@v3
         with:
@@ -93,135 +153,134 @@ jobs:
       - name: 安装依赖
         run: pnpm install
 
+      # 根据不同操作系统执行不同的构建命令
       - name: 构建 Windows 应用
+        if: matrix.os == 'windows-latest'
+        run: pnpm run build:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm run build:win
 
-      - name: 查找并收集发布文件
-        id: collect-files
-        shell: pwsh
+      - name: 构建 macOS 应用
+        if: matrix.os == 'macos-latest'
+        run: pnpm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 构建 Linux 应用
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 清理不必要的文件，只保留需要的安装文件
+      - name: 清理 Windows 构建产物
+        if: matrix.os == 'windows-latest'
         run: |
-          # 创建存储构建文件的目录
-          New-Item -ItemType Directory -Path ./release-files -Force
-
-          # 获取package.json中的应用名称
-          $packageJson = Get-Content -Raw -Path package.json | ConvertFrom-Json
-          $version = "${{ steps.version.outputs.NEW_VERSION }}"
-          $appVersion = "${{ steps.version.outputs.NEW_VERSION }}"
-
-          # 查找最新版本目录
-          $versionDir = Get-ChildItem -Path ./release -Directory | Sort-Object -Property { [version]$_.Name } -Descending | Select-Object -First 1
-
-          if (-not $versionDir) {
-            echo "错误: 未找到版本目录!"
-            Get-ChildItem -Path ./release -Recurse
-            exit 1
-          }
-
-          echo "最新版本目录: $($versionDir.FullName)"
-
-          # 查找所有EXE文件
-          $exeFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.exe" | Where-Object { $_.Name -match "copyNote" }
-
-          if ($exeFiles.Count -eq 0) {
-            echo "尝试查找所有EXE文件..."
-            $exeFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.exe"
-            
-            if ($exeFiles.Count -eq 0) {
-              echo "错误: 未找到安装程序文件!"
-              Get-ChildItem -Path $versionDir.FullName -Recurse
-              exit 1
-            }
-          }
-
-          echo "找到的安装程序文件:"
-          $exeFiles | ForEach-Object { echo "- $($_.Name)" }
-
-          # 选择第一个EXE文件
-          $exeFile = $exeFiles | Select-Object -First 1
-          echo "选择的安装程序: $($exeFile.FullName)"
-
-          # 复制安装程序到发布目录
+          mkdir -p ./release-files
+          $version="${{ needs.update-version.outputs.new_version }}"
+          $exeFile=Get-ChildItem -Path "./release/$version" -Filter "*.exe" -Recurse | Select-Object -First 1
           Copy-Item -Path $exeFile.FullName -Destination "./release-files/"
-          echo "INSTALLER_PATH=./release-files/$($exeFile.Name)" >> $env:GITHUB_OUTPUT
-          echo "INSTALLER_NAME=$($exeFile.Name)" >> $env:GITHUB_OUTPUT
 
-          # 复制并重命名自动更新文件
-          $ymlFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.yml"
-          $foundLatestYml = $false
-
+          # 复制latest.yml文件
+          $ymlFiles = Get-ChildItem -Path "./release/$version" -Filter "*.yml" -Recurse
           foreach ($ymlFile in $ymlFiles) {
-            if ($ymlFile.Name -eq "latest.yml") {
-              $foundLatestYml = $true
-              echo "找到latest.yml文件"
-            }
             Copy-Item -Path $ymlFile.FullName -Destination "./release-files/"
-            echo "复制YML文件: $($ymlFile.Name)"
+            if ($ymlFile.Name -ne "latest.yml") {
+              Copy-Item -Path $ymlFile.FullName -Destination "./release-files/latest.yml"
+            }
           }
-
-          # 如果没有找到latest.yml，但找到了其他yml文件，复制一份并重命名为latest.yml
-          if (-not $foundLatestYml -and $ymlFiles.Count -gt 0) {
-            echo "未找到latest.yml，使用第一个yml文件创建..."
-            $firstYml = $ymlFiles | Select-Object -First 1
-            Copy-Item -Path $firstYml.FullName -Destination "./release-files/latest.yml"
-            echo "创建了latest.yml文件 (从 $($firstYml.Name))"
-            $foundLatestYml = $true
-          }
-
-          # 即使这样也没有找到yml文件，创建一个基本的latest.yml
-          if (-not $foundLatestYml) {
-            echo "警告: 没有找到任何YML文件，创建基本的latest.yml..."
-            $exeName = $exeFile.Name
-            $version = $appVersion
-            $ymlContent = @"
-version: $version
-files:
-  - url: $exeName
-    sha512: 0
-path: $exeName
-sha512: 0
-releaseDate: $(Get-Date -Format "yyyy-MM-dd")
-"@
-            Set-Content -Path "./release-files/latest.yml" -Value $ymlContent
-            echo "创建了基本的latest.yml文件"
-          }
-
-          echo "YML_PATH=./release-files/latest.yml" >> $env:GITHUB_OUTPUT
 
           # 复制blockmap文件
-          $blockmapFiles = Get-ChildItem -Path $versionDir.FullName -Filter "*.blockmap"
-
+          $blockmapFiles = Get-ChildItem -Path "./release/$version" -Filter "*.blockmap" -Recurse
           foreach ($blockmapFile in $blockmapFiles) {
             Copy-Item -Path $blockmapFile.FullName -Destination "./release-files/"
-            echo "BLOCKMAP_PATH=./release-files/$($blockmapFile.Name)" >> $env:GITHUB_OUTPUT
           }
+        shell: pwsh
 
-          # 列出要发布的文件
-          echo "要发布的文件:"
-          Get-ChildItem -Path "./release-files" | ForEach-Object { 
-            echo "- $($_.Name) ($('{0:N2}' -f ($_.Length/1MB)) MB)"
-          }
+      - name: 清理 macOS 构建产物
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p ./release-files
+          version="${{ needs.update-version.outputs.new_version }}"
+          find ./release/$version -name "*.dmg" -exec cp {} ./release-files/ \;
+          find ./release/$version -name "*.zip" -exec cp {} ./release-files/ \;
+          find ./release/$version -name "*.yml" -exec cp {} ./release-files/ \;
+          find ./release/$version -name "*.blockmap" -exec cp {} ./release-files/ \;
+
+          # 确保latest-mac.yml存在
+          if [ -f "./release/$version/latest-mac.yml" ]; then
+            cp "./release/$version/latest-mac.yml" "./release-files/"
+          elif [ -f "./release-files/"*.yml ]; then
+            cp $(ls ./release-files/*.yml | head -1) "./release-files/latest-mac.yml"
+          fi
+        shell: bash
+
+      - name: 清理 Linux 构建产物
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p ./release-files
+          version="${{ needs.update-version.outputs.new_version }}"
+          find ./release/$version -name "*.AppImage" -exec cp {} ./release-files/ \;
+          find ./release/$version -name "*.deb" -exec cp {} ./release-files/ \;
+          find ./release/$version -name "*.yml" -exec cp {} ./release-files/ \;
+
+          # 确保latest-linux.yml存在
+          if [ -f "./release/$version/latest-linux.yml" ]; then
+            cp "./release/$version/latest-linux.yml" "./release-files/"
+          elif [ -f "./release-files/"*.yml ]; then
+            cp $(ls ./release-files/*.yml | head -1) "./release-files/latest-linux.yml"
+          fi
+        shell: bash
+
+      # 上传构建产物
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          name: release-${{ matrix.os }}
+          path: ./release-files
+          retention-days: 3
+
+  # 第三步：发布到GitHub Releases
+  release:
+    name: 发布到GitHub Releases
+    needs: [update-version, build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 下载所有构建产物
+        uses: actions/download-artifact@v3.0.2
+        with:
+          path: ./all-artifacts
+
+      - name: 显示下载的文件
+        run: ls -R ./all-artifacts
+
+      - name: 创建发布目录
+        run: |
+          mkdir -p ./release-files
+          cp -r ./all-artifacts/*/* ./release-files/
+          ls -la ./release-files
 
       - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            ./release-files/*
-          tag_name: v${{ steps.version.outputs.NEW_VERSION }}
-          name: 版本 v${{ steps.version.outputs.NEW_VERSION }}
+          files: ./release-files/*
+          tag_name: v${{ needs.update-version.outputs.new_version }}
+          name: 版本 v${{ needs.update-version.outputs.new_version }}
           body: |
-            ## 版本 v${{ steps.version.outputs.NEW_VERSION }}
+            ## 版本 v${{ needs.update-version.outputs.new_version }}
 
             ### 下载说明
 
-            - **Windows 用户**: 下载 **${{ steps.collect-files.outputs.INSTALLER_NAME }}** 文件并安装
+            - **Windows 用户**: 下载 `.exe` 文件并安装
+            - **macOS 用户**: 下载 `.dmg` 文件并安装
+            - **Linux 用户**: 下载 `.AppImage` 或 `.deb` 文件并安装
 
             ### 更新内容
 
             - 包含最新代码变更
           draft: false
           prerelease: false
-          generate_release_notes: false
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
