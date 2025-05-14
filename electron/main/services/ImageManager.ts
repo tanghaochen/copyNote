@@ -1,9 +1,8 @@
-import { app } from "electron";
+import { app, net } from "electron";
 import fs from "fs";
 import path from "path";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
+import crypto from "crypto";
+import { fileURLToPath } from "node:url";
 
 export class ImageManager {
   private userDataPath: string;
@@ -25,10 +24,7 @@ export class ImageManager {
     filename: string;
     localPath: string;
   } {
-    const urlHash = require("crypto")
-      .createHash("md5")
-      .update(imageUrl)
-      .digest("hex");
+    const urlHash = crypto.createHash("md5").update(imageUrl).digest("hex");
 
     let fileExt = ".jpg"; // 默认扩展名
     try {
@@ -55,7 +51,6 @@ export class ImageManager {
       }
 
       // 使用Electron的net模块下载图片
-      const { net } = require("electron");
       const response = await net.fetch(imageUrl, {
         headers: {
           "User-Agent":

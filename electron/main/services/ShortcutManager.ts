@@ -1,5 +1,5 @@
 import { globalShortcut, clipboard } from "electron";
-import { keyboard, Key } from "@nut-tree/nut-js";
+import { keyboard, Key } from "@nut-tree-fork/nut-js";
 
 export class ShortcutManager {
   private windowManager;

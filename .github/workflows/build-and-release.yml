@@ -150,8 +150,32 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      - name: 检查依赖项
+        run: |
+          echo "打印package.json中的依赖项"
+          cat package.json
+        shell: bash
+
       - name: 安装依赖
         run: pnpm install
+
+      - name: 验证依赖项安装
+        run: |
+          echo "验证关键依赖项是否正确安装"
+          if [ -d "node_modules/@nut-tree-fork" ]; then
+            echo "成功安装 @nut-tree-fork/nut-js"
+          else
+            echo "错误: @nut-tree-fork/nut-js 未安装"
+            exit 1
+          fi
+
+          if [ -d "node_modules/lodash" ]; then
+            echo "成功安装 lodash"
+          else
+            echo "错误: lodash 未安装"
+            exit 1
+          fi
+        shell: bash
 
       # 根据不同操作系统执行不同的构建命令
       - name: 构建 Windows 应用

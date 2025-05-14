@@ -1,14 +1,13 @@
 import { app, ipcMain, dialog } from "electron";
-import { createRequire } from "node:module";
 import type {
   ProgressInfo,
   UpdateDownloadedEvent,
   UpdateInfo,
 } from "electron-updater";
 import log from "electron-log";
-// sqlite.test.js
-// import { DatabaseSync } from 'node:sqlite'
-const { autoUpdater } = createRequire(import.meta.url)("electron-updater");
+// 使用CommonJS兼容的导入方式
+import electronUpdater from "electron-updater";
+const { autoUpdater } = electronUpdater;
 
 // 配置日志
 log.transports.file.level = "debug";
