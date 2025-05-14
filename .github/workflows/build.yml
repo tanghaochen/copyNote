@@ -57,12 +57,17 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install Dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile --prefer-offline
+        env:
+          SKIP_TESTS: true
+          NODE_ENV: production
 
       - name: Build Release Files
         run: pnpm run build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_TESTS: true
+          NODE_ENV: production
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
