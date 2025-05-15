@@ -25,6 +25,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "react-resizable-panels";
+import { width } from "../../../node_modules/.vite/deps_temp_a6f746c6/@mui_system";
 import { Breadcrumbs, Typography, Chip, IconButton, Box } from "@mui/material";
 // 富文本组件
 import RichTextEditor from "@/components/richNote";
@@ -60,13 +61,26 @@ const ControlBar = styled("div")(
 const KeywordsContainer = styled("div")({
   padding: "0.5rem",
   display: "flex",
-  flexWrap: "wrap",
+  flexDirection: "column",
   gap: "0.5rem",
   backgroundColor: "#f9fafb",
   borderBottom: "1px solid #e5e7eb",
-  maxHeight: "5rem",
+  height: "100%",
   overflowY: "auto",
+  width: "15rem",
 });
+
+const KeywordItem = styled("div")(({ isActive }: { isActive: boolean }) => ({
+  padding: "0.25rem 0.5rem",
+  cursor: "pointer",
+  backgroundColor: isActive ? "#e6f7ff" : "transparent",
+  borderRadius: "4px",
+  fontWeight: isActive ? "bold" : "normal",
+  transition: "all 0.2s ease",
+  "&:hover": {
+    backgroundColor: "#f0f7ff",
+  },
+}));
 
 const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
   const [highlightedText, setHighlightedText] = useState(textContent);
@@ -236,19 +250,13 @@ const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
       {foundKeywords.length > 0 && (
         <KeywordsContainer>
           {foundKeywords.map((keyword, index) => (
-            <Chip
+            <KeywordItem
               key={index}
-              label={keyword}
-              size="small"
-              color={activeKeyword === keyword ? "primary" : "default"}
-              variant={activeKeyword === keyword ? "filled" : "outlined"}
-              clickable
+              isActive={activeKeyword === keyword}
               onClick={() => handleChipClick(keyword)}
-              sx={{
-                fontWeight: activeKeyword === keyword ? "bold" : "normal",
-                transition: "all 0.2s ease",
-              }}
-            />
+            >
+              {keyword}
+            </KeywordItem>
           ))}
         </KeywordsContainer>
       )}
