@@ -6,7 +6,7 @@ import React, {
   useRef,
 } from "react";
 import FlexSearch from "flexsearch";
-import { clipboard } from "electron";
+import { clipboard, IpcRendererEvent } from "electron";
 import "./styles/index.scss";
 import { worksListDB } from "@/database/worksLists";
 import { noteContentDB } from "@/database/noteContentDB";
@@ -25,12 +25,11 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "react-resizable-panels";
-import { width } from "../../../node_modules/.vite/deps_temp_a6f746c6/@mui_system";
 import { Breadcrumbs, Typography, Chip, IconButton, Box } from "@mui/material";
 // 富文本组件
 import RichTextEditor from "@/components/richNote";
 import "@/components/richNote/styles/index.scss";
-import { tagsdb } from "@/database/tagsDB";
+import { tagsdb } from "@/database/tagsdb";
 
 interface HighlightProps {
   textContent: string;
@@ -68,6 +67,7 @@ const KeywordsContainer = styled("div")({
   height: "100%",
   overflowY: "auto",
   width: "15rem",
+  // maxHeight: "250px", // 限制高度以适应初始窗口大小
 });
 
 const KeywordItem = styled("div")(({ isActive }: { isActive: boolean }) => ({
@@ -81,7 +81,7 @@ const KeywordItem = styled("div")(({ isActive }: { isActive: boolean }) => ({
     backgroundColor: "#f0f7ff",
   },
 }));
-
+let isWindowVisible = false;
 const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
   const [highlightedText, setHighlightedText] = useState(textContent);
   const contentPreviewRef = useRef<HTMLDivElement>(null);
@@ -92,6 +92,10 @@ const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
   const [foundKeywords, setFoundKeywords] = useState<string[]>([]);
   // 当前活跃的关键词
   const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
+  // 是否显示面板（点击关键词后才显示）
+  const [showPanel, setShowPanel] = useState<boolean>(false);
+  // 关键词容器的引用，用于获取尺寸
+  const keywordsContainerRef = useRef<HTMLDivElement>(null);
 
   const sortedItems = useMemo(() => {
     console.log("sortedItems", items);
@@ -191,13 +195,18 @@ const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
   const handleChipClick = async (keyword: string) => {
     // 设置当前活跃的关键词
     setActiveKeyword(keyword);
+    // 显示面板
+    setShowPanel(true);
+
+    // 通知主进程调整窗口大小为完整尺寸
+    window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
 
     // 查找对应的ID
     const id = titleToIdMap.get(keyword);
     if (!id) return;
 
     try {
-      const noteItem = await noteContentDB.getContentByNoteId(id.toString());
+      const noteItem = await noteContentDB.getContentByNoteId(Number(id));
       // 使用DOMPurify清理笔记内容
       setNoteContent(DOMPurify.sanitize(noteItem));
       setActiveNoteId(id);
@@ -214,6 +223,8 @@ const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
 
   useEffect(() => {
     console.log(textContent, items);
+    setShowPanel(false);
+
     const handler = async (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.classList.contains("highlight")) {
@@ -223,12 +234,17 @@ const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
         // 获取高亮文本内容并设置为活跃关键词
         const highlightText = target.textContent?.replace(/[{}[\]]/g, "") || "";
         setActiveKeyword(highlightText);
+        // 显示面板
+        setShowPanel(true);
+
+        // 通知主进程调整窗口大小为完整尺寸
+        window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
 
         try {
-          const noteItem = await noteContentDB.getContentByNoteId(id);
+          const noteItem = await noteContentDB.getContentByNoteId(Number(id));
           // 使用DOMPurify清理笔记内容
           setNoteContent(DOMPurify.sanitize(noteItem));
-          setActiveNoteId(id);
+          setActiveNoteId(Number(id));
         } catch (error) {
           console.error("获取笔记内容失败:", error);
           setNoteContent("<p>获取笔记内容失败</p>");
@@ -245,54 +261,124 @@ const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
 
   const ref = useRef<ImperativePanelGroupHandle>(null);
 
+  // 在组件加载和foundKeywords变化时发送窗口尺寸消息
+  useEffect(() => {
+    console.log("检测到关键词变化，数量:", foundKeywords.length);
+
+    // 检查窗口是否可见，不可见则不调整大小
+    if (!isWindowVisible) {
+      console.log("窗口不可见，跳过尺寸调整");
+      return;
+    }
+
+    // 如果没有找到关键词，设置小窗口大小
+    if (foundKeywords.length === 0) {
+      window.ipcRenderer?.send("resize-window", { width: 180, height: 100 });
+      return;
+    }
+
+    // 等待DOM渲染完成后获取关键词容器的尺寸
+    setTimeout(() => {
+      if (keywordsContainerRef.current) {
+        if (showPanel) {
+          // 显示详细面板时，设置完整窗口尺寸
+          window.ipcRenderer?.send("resize-window", {
+            width: 940,
+            height: 550,
+          });
+        } else {
+          // 只显示关键词列表时，根据关键词数量调整窗口大小
+          const { width, height } =
+            keywordsContainerRef.current.getBoundingClientRect();
+          console.log("关键词容器尺寸:", width, height);
+
+          // 根据关键词数量计算合适的高度（每个关键词约40px高）
+          const itemHeight = 40; // 每个关键词项高度估计值
+          const numItems = Math.min(foundKeywords.length, 5); // 最多显示5个
+          const estimatedHeight = numItems * itemHeight + 30; // 加上padding
+
+          window.ipcRenderer?.send("resize-window", {
+            width: Math.ceil(width) + 40, // 宽度加上一些额外空间
+            height: Math.max(estimatedHeight, 100), // 最小高度100px
+          });
+        }
+      }
+    }, 200); // 增加延迟确保DOM完全渲染
+  }, [foundKeywords, showPanel, isWindowVisible]);
+
+  // 监听ESC键盘事件关闭窗口
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        window.ipcRenderer?.send("close-window");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  // 在展示的关键词里，取前5个，如果有关键词就显示
+  const displayKeywords = useMemo(() => {
+    return foundKeywords.length > 0 ? foundKeywords.slice(0, 5) : foundKeywords;
+  }, [foundKeywords]);
+
   return (
-    <div className="highlighter-container h-full">
-      {foundKeywords.length > 0 && (
-        <KeywordsContainer>
-          {foundKeywords.map((keyword, index) => (
-            <KeywordItem
-              key={index}
-              isActive={activeKeyword === keyword}
-              onClick={() => handleChipClick(keyword)}
-            >
-              {keyword}
-            </KeywordItem>
-          ))}
-        </KeywordsContainer>
-      )}
-      <PanelGroup direction="horizontal" ref={ref}>
-        <Panel>
-          <div className="content-preview content-preview-target">
-            <div className="font-bold">获取内容</div>
-            <div
-              ref={contentPreviewRef}
-              dangerouslySetInnerHTML={{ __html: highlightedText }}
-              style={{ whiteSpace: "pre-wrap" }}
-            ></div>
+    <div className="highlighter-container h-full" style={{ display: "flex" }}>
+      <KeywordsContainer ref={keywordsContainerRef}>
+        {displayKeywords.map((keyword, index) => (
+          <KeywordItem
+            key={index}
+            isActive={activeKeyword === keyword}
+            onClick={() => handleChipClick(keyword)}
+          >
+            {keyword}
+          </KeywordItem>
+        ))}
+        {displayKeywords.length === 0 && (
+          <div style={{ padding: "0.5rem", color: "#666" }}>
+            未找到相关关键词
           </div>
-        </Panel>
-        <PanelResizeHandle className="w-1 bg-stone-200" />
-        <Panel>
-          <div className="content-preview content-preview-note">
-            <div className="font-bold ">
-              <div>笔记内容</div>
+        )}
+      </KeywordsContainer>
+
+      {showPanel && (
+        <PanelGroup direction="horizontal" ref={ref}>
+          <Panel>
+            <div className="content-preview content-preview-target">
+              <div className="font-bold">获取内容</div>
+              <div
+                ref={contentPreviewRef}
+                dangerouslySetInnerHTML={{ __html: highlightedText }}
+                style={{ whiteSpace: "pre-wrap" }}
+              ></div>
             </div>
-            {/* <div dangerouslySetInnerHTML={{ __html: noteContent }}></div> */}
-            {/* 如果没有高亮，富文本不显示， 提供没有找到 */}
-            {foundKeywords.length > 0 ? (
-              <RichTextEditor
-                tabItem={{ content: noteContent, value: activeNoteId }}
-                isShowHeading={false}
-              />
-            ) : (
-              // 没有找到
-              <div className="w-full h-full flex items-center justify-center">
-                <div>没有找到相关内容</div>
+          </Panel>
+          <PanelResizeHandle className="w-1 bg-stone-200" />
+          <Panel>
+            <div className="content-preview content-preview-note">
+              <div className="font-bold ">
+                <div>笔记内容</div>
               </div>
-            )}
-          </div>
-        </Panel>
-      </PanelGroup>
+              {/* <div dangerouslySetInnerHTML={{ __html: noteContent }}></div> */}
+              {/* 如果没有高亮，富文本不显示， 提供没有找到 */}
+              {foundKeywords.length > 0 ? (
+                <RichTextEditor
+                  tabItem={{ content: noteContent, value: activeNoteId }}
+                  isShowHeading={false}
+                />
+              ) : (
+                // 没有找到
+                <div className="w-full h-full flex items-center justify-center">
+                  <div>没有找到相关内容</div>
+                </div>
+              )}
+            </div>
+          </Panel>
+        </PanelGroup>
+      )}
     </div>
   );
 };
@@ -347,15 +433,18 @@ const App = () => {
     };
   }, []);
 
-  const handleClipboardUpdate = useCallback((text: string) => {
-    console.log("handleClipboardUpdate:", text);
-    const cleanText = text.text
-      .replace(/\n{3,}/g, "\n")
-      .replace(/^\n+|\n+$/g, "")
-      .replace(/[\u200B-\u200D\uFEFF]/g, "");
+  const handleClipboardUpdate = useCallback(
+    (event: IpcRendererEvent, text: any) => {
+      console.log("handleClipboardUpdate:", event, text);
+      const cleanText = event.text
+        .replace(/\n{3,}/g, "\n")
+        .replace(/^\n+|\n+$/g, "")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "");
 
-    setCustomClipBoardContent(cleanText);
-  }, []);
+      setCustomClipBoardContent(cleanText);
+    },
+    [],
+  );
 
   // 获取词库列表
   const getWorksList = async () => {
@@ -364,7 +453,7 @@ const App = () => {
       const tags = await tagsdb.getTagsByCategory(1);
 
       // 2. 初始化结果数组
-      let allMetadata = [];
+      let allMetadata: Array<{ id: number; title: string }> = [];
 
       // 3. 对每个标签查询对应的metadata
       for (const tag of tags) {
@@ -383,17 +472,44 @@ const App = () => {
     }
   };
 
+  // 窗口可见性状态
+  const [isWindowVisible, setIsWindowVisible] = useState(true);
+
   useEffect(() => {
     getWorksList();
-    window.ipcRenderer?.on("clipboard-update", (text: string) => {
+
+    // 监听窗口可见性变化
+    window.ipcRenderer?.on(
+      "window-visibility-change",
+      (event, { isVisible }) => {
+        console.log("窗口可见性变化:", isVisible);
+        setIsWindowVisible(isVisible);
+      },
+    );
+
+    // 监听剪贴板更新
+    window.ipcRenderer?.on("clipboard-update", (event, text) => {
       console.log("收到剪贴板更新事件:", text);
       getWorksList();
+      handleClipboardUpdate(event, text);
+
+      const isVisible = window.ipcRenderer?.sendSync("is-window-visible");
+      console.log("窗口可见性:", isVisible);
       handleClipboardUpdate(text);
+
+      if (!isVisible) {
+        window.ipcRenderer?.send("resize-window", { width: 200, height: 200 });
+      }
     });
+
     return () => {
       window.ipcRenderer?.off?.("clipboard-update", handleClipboardUpdate);
+      // 移除窗口可见性监听器
+      window.ipcRenderer?.off?.("window-visibility-change", () => {
+        console.log("移除窗口可见性监听器");
+      });
     };
-  }, [handleClipboardUpdate]);
+  }, [handleClipboardUpdate, isWindowVisible]);
 
   if (isClosed) return null;
 
@@ -423,9 +539,9 @@ const App = () => {
             <SettingsIcon fontSize="small" />
           </IconButton>
         </Box>
-        <Typography variant="caption" sx={{ color: "#fff" }}>
+        {/* <Typography variant="caption" sx={{ color: "#fff" }}>
           内容高亮工具
-        </Typography>
+        </Typography> */}
         <Box sx={{ display: "flex", gap: "0.5rem" }}>
           <IconButton
             size="small"

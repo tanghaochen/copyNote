@@ -313,8 +313,12 @@ function setupIpcHandlers(
   // 添加处理关闭窗口的IPC处理程序
   ipcMain.on("close-window", (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
+
     if (win && !win.isDestroyed()) {
       win.close();
+      win.webContents.send("window-visibility-change", {
+        isVisible: false,
+      });
     }
   });
 }

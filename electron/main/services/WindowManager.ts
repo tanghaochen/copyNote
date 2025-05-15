@@ -135,6 +135,18 @@ export class WindowManager {
       let mouseLeaveTimeout: NodeJS.Timeout | null = null;
       let isPinned = false;
 
+      // 查询win2窗口是否存在或显示，监听消息查询
+      this.win2.webContents.on("ipc-message", (event, channel, ...args) => {
+        if (channel === "is-window-visible") {
+          // 同步返回窗口可见性状态
+          if (this.win2 && !this.win2.isDestroyed()) {
+            event.returnValue = this.win2.isVisible();
+          } else {
+            event.returnValue = false;
+          }
+        }
+      });
+
       // 监听从渲染进程发来的固定窗口消息
       this.win2.webContents.on("ipc-message", (event, channel, ...args) => {
         if (channel === "pin-window") {
@@ -151,6 +163,20 @@ export class WindowManager {
                 this.win2.hide();
               }
             }, 3000);
+          }
+        } else if (channel === "resize-window") {
+          // 处理窗口大小调整请求
+          const { width, height } = args[0];
+          if (this.win2 && !this.win2.isDestroyed()) {
+            console.log("调整窗口大小为:", width, height);
+            this.win2.setSize(width, height);
+          }
+        } else if (channel === "is-window-visible") {
+          // 同步返回窗口可见性状态
+          if (this.win2 && !this.win2.isDestroyed()) {
+            event.returnValue = this.win2.isVisible();
+          } else {
+            event.returnValue = false;
           }
         }
       });
@@ -177,12 +203,16 @@ export class WindowManager {
               !this.win2.isFocused()
             ) {
               this.win2.hide();
+            } else if (this.win2 && !this.win2.isDestroyed()) {
+              // 窗口仍然可见
+              console.log("窗口仍然可见");
             }
           }, 3000);
         }
       });
 
-      this.win2.webContents.openDevTools();
+      // this.win2.webContents.openDevTools();
+
       if (this.viteDevServerUrl) {
         this.win2.loadURL(this.viteDevServerUrl + "dashboard");
       } else {
@@ -215,6 +245,15 @@ export class WindowManager {
   showSecondaryWindowAtCursor() {
     if (!this.win2 || this.win2.isDestroyed()) return;
 
+    // 检查窗口是否已经显示
+    const isVisible = this.win2.isVisible();
+
+    // 如果窗口之前是隐藏的，现在要显示，则设置小尺寸
+    if (!isVisible) {
+      console.log("窗口之前是隐藏的，现在显示之前设置为小尺寸");
+      this.win2.setSize(200, 200);
+    }
+
     const globelMousePoint = screen.getCursorScreenPoint();
     this.win2.setPosition(
       parseInt(globelMousePoint.x.toString()),
@@ -222,6 +261,8 @@ export class WindowManager {
     );
     this.win2.setAlwaysOnTop(true);
     this.win2.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+    // 显示窗口
     this.win2.focus();
     this.win2.show();
   }
