@@ -199,7 +199,6 @@ const TextHighlighter = ({
     );
     console.log("找到的关键词:", foundKeywords);
   }, [sortedItems, foundKeywords]);
-  let clickedWinSize = { width: 940, height: 550 };
 
   // 处理点击关键词的函数
   const handleChipClick = async (keyword: string) => {
@@ -211,12 +210,10 @@ const TextHighlighter = ({
     setVisibleContent(true);
 
     // 获取窗口信息
-    const win2: Number[] = await window.ipcRenderer?.invoke("get-window-size");
-    console.log("get-window-size", win2);
+    // const win2: Number[] = await window.ipcRenderer?.invoke("get-window-size");
+    // console.log("get-window-size", win2);
     // 通知主进程调整窗口大小为完整尺寸
-    if (clickedWinSize.width === 940 && clickedWinSize.height === 550) {
-      window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
-    }
+    window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
 
     // 查找对应的ID
     const id = titleToIdMap.get(keyword);
@@ -339,7 +336,7 @@ const TextHighlighter = ({
 
   // 在展示的关键词里，取前5个，如果有关键词就显示
   const displayKeywords = useMemo(() => {
-    return foundKeywords.length > 0 ? foundKeywords.slice(0, 5) : foundKeywords;
+    return foundKeywords.length > 0 ? foundKeywords : foundKeywords;
   }, [foundKeywords]);
 
   return (
@@ -351,7 +348,7 @@ const TextHighlighter = ({
             isActive={activeKeyword === keyword}
             onClick={() => handleChipClick(keyword)}
           >
-            {keyword}-{isVisibleContent + ""}
+            {keyword}
           </KeywordItem>
         ))}
         {displayKeywords.length === 0 && (
@@ -483,7 +480,29 @@ const App = () => {
       for (const tag of tags) {
         const metadata = await worksListDB.getMetadataByTagId(tag.id);
         if (metadata && metadata.length > 0) {
-          allMetadata = allMetadata.concat(metadata);
+          // 处理含有分号的标题，将其分割为多个条目
+          const processedMetadata = metadata.flatMap(
+            (item: { id: number; title: string }) => {
+              // 检查标题中是否包含分号（中文分号或英文分号）
+              if (
+                item.title &&
+                (item.title.includes("；") || item.title.includes(";"))
+              ) {
+                // 将标题按分号分割
+                const titles = item.title.split(/[；;]/);
+                // 为每个分割后的标题创建新条目，保持相同的ID
+                return titles
+                  .map((title: string) => ({
+                    id: item.id,
+                    title: title.trim(), // 去除可能的空格
+                  }))
+                  .filter((item: { title: string }) => item.title); // 过滤掉空标题
+              }
+              return item; // 不含分号的直接返回
+            },
+          );
+
+          allMetadata = allMetadata.concat(processedMetadata);
         }
       }
 
