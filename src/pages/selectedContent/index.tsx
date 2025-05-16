@@ -534,8 +534,8 @@ const App = () => {
     window.ipcRenderer?.on("clipboard-update", async (event: any) => {
       console.log("收到剪贴板更新事件:", event);
 
-      // 从事件数据中获取 text 和 isVisible
-      const { text, isVisible } = event;
+      // 从事件数据中获取相关信息
+      const { text, isVisible, isFilePaths, filePaths } = event;
 
       // 记录窗口可见性
       console.log("窗口可见性(从事件中):", isVisible);
@@ -545,7 +545,15 @@ const App = () => {
 
       // 确保传递正确的参数给 handleClipboardUpdate
       if (text) {
-        handleClipboardUpdate(event, text);
+        // 如果是文件路径，使用特殊的格式处理
+        if (isFilePaths && filePaths) {
+          console.log("收到文件路径:", filePaths);
+          // 处理文件路径，但不改变用户的剪贴板内容
+          handleClipboardUpdate(event, text);
+        } else {
+          // 普通文本内容
+          handleClipboardUpdate(event, text);
+        }
       }
 
       if (!isVisible) {
