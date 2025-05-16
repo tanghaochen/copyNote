@@ -28,6 +28,16 @@ if (!window.ipcRenderer && window.electronAPI) {
       return window.electronAPI.invoke(channel, ...args);
     },
 
+    // 添加 sendSync 方法支持
+    sendSync: (channel: string, ...args: any[]) => {
+      console.warn(
+        "sendSync 方法在兼容层不是真正的同步调用，需要使用 invoke 替代",
+      );
+      // 注意: 调用此方法时，一定要使用 await 修饰，
+      // 否则将无法获取正确的返回值
+      return window.electronAPI.invoke(channel, ...args);
+    },
+
     // 向后兼容
     off: () => window.ipcRenderer,
     removeListener: () => window.ipcRenderer,

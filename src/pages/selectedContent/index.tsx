@@ -30,10 +30,13 @@ import { Breadcrumbs, Typography, Chip, IconButton, Box } from "@mui/material";
 import RichTextEditor from "@/components/richNote";
 import "@/components/richNote/styles/index.scss";
 import { tagsdb } from "@/database/tagsdb";
+import { useVisibleControl } from "./lib";
 
 interface HighlightProps {
   textContent: string;
   items?: Array<{ id: number; title: string }>;
+  isVisibleContent?: boolean;
+  setVisibleContent?: (visible: boolean) => void;
 }
 
 // 自定义样式组件
@@ -67,6 +70,7 @@ const KeywordsContainer = styled("div")({
   height: "100%",
   overflowY: "auto",
   width: "15rem",
+  flexShrink: 0,
   // maxHeight: "250px", // 限制高度以适应初始窗口大小
 });
 
@@ -82,7 +86,12 @@ const KeywordItem = styled("div")(({ isActive }: { isActive: boolean }) => ({
   },
 }));
 let isWindowVisible = false;
-const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
+const TextHighlighter = ({
+  textContent,
+  items = [],
+  isVisibleContent = true,
+  setVisibleContent = () => {},
+}: HighlightProps) => {
   const [highlightedText, setHighlightedText] = useState(textContent);
   const contentPreviewRef = useRef<HTMLDivElement>(null);
   const [noteContent, setNoteContent] = useState(""); // 笔记内容
@@ -190,6 +199,7 @@ const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
     );
     console.log("找到的关键词:", foundKeywords);
   }, [sortedItems, foundKeywords]);
+  let clickedWinSize = { width: 940, height: 550 };
 
   // 处理点击关键词的函数
   const handleChipClick = async (keyword: string) => {
@@ -198,8 +208,15 @@ const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
     // 显示面板
     setShowPanel(true);
 
+    setVisibleContent(true);
+
+    // 获取窗口信息
+    const win2: Number[] = await window.ipcRenderer?.invoke("get-window-size");
+    console.log("get-window-size", win2);
     // 通知主进程调整窗口大小为完整尺寸
-    window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
+    if (clickedWinSize.width === 940 && clickedWinSize.height === 550) {
+      window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
+    }
 
     // 查找对应的ID
     const id = titleToIdMap.get(keyword);
@@ -334,7 +351,7 @@ const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
             isActive={activeKeyword === keyword}
             onClick={() => handleChipClick(keyword)}
           >
-            {keyword}
+            {keyword}-{isVisibleContent + ""}
           </KeywordItem>
         ))}
         {displayKeywords.length === 0 && (
@@ -344,7 +361,8 @@ const TextHighlighter = ({ textContent, items = [] }: HighlightProps) => {
         )}
       </KeywordsContainer>
 
-      {showPanel && (
+      {/* 点击关键词list显示panel， */}
+      {isVisibleContent && (
         <PanelGroup direction="horizontal" ref={ref}>
           <Panel>
             <div className="content-preview content-preview-target">
@@ -434,9 +452,15 @@ const App = () => {
   }, []);
 
   const handleClipboardUpdate = useCallback(
-    (event: IpcRendererEvent, text: any) => {
+    (event: IpcRendererEvent, text: string) => {
       console.log("handleClipboardUpdate:", event, text);
-      const cleanText = event.text
+      if (!text) {
+        console.warn("handleClipboardUpdate: text 是空的");
+        return;
+      }
+
+      // 使用传入的 text 参数
+      const cleanText = text
         .replace(/\n{3,}/g, "\n")
         .replace(/^\n+|\n+$/g, "")
         .replace(/[\u200B-\u200D\uFEFF]/g, "");
@@ -479,23 +503,31 @@ const App = () => {
     getWorksList();
 
     // 监听窗口可见性变化
-    window.ipcRenderer?.on(
-      "window-visibility-change",
-      (event, { isVisible }) => {
-        console.log("窗口可见性变化:", isVisible);
-        setIsWindowVisible(isVisible);
-      },
-    );
+    // window.ipcRenderer?.on(
+    //   "window-visibility-change",
+    //   (event, { isVisible }) => {
+    //     console.log("窗口可见性变化:", isVisible);
+    //     setIsWindowVisible(isVisible);
+    //   },
+    // );
 
     // 监听剪贴板更新
-    window.ipcRenderer?.on("clipboard-update", (event, text) => {
-      console.log("收到剪贴板更新事件:", text);
-      getWorksList();
-      handleClipboardUpdate(event, text);
+    window.ipcRenderer?.on("clipboard-update", async (event: any) => {
+      console.log("收到剪贴板更新事件:", event);
 
-      const isVisible = window.ipcRenderer?.sendSync("is-window-visible");
-      console.log("窗口可见性:", isVisible);
-      handleClipboardUpdate(text);
+      // 从事件数据中获取 text 和 isVisible
+      const { text, isVisible } = event;
+
+      // 记录窗口可见性
+      console.log("窗口可见性(从事件中):", isVisible);
+      setIsWindowVisible(!!isVisible);
+
+      getWorksList();
+
+      // 确保传递正确的参数给 handleClipboardUpdate
+      if (text) {
+        handleClipboardUpdate(event, text);
+      }
 
       if (!isVisible) {
         window.ipcRenderer?.send("resize-window", { width: 200, height: 200 });
@@ -587,6 +619,8 @@ const App = () => {
       <TextHighlighter
         textContent={customClipBoardContent}
         items={highlightedKeywords}
+        isVisibleContent={isWindowVisible}
+        setVisibleContent={setIsWindowVisible}
       />
       {/* <RichTextEditor /> */}
     </div>

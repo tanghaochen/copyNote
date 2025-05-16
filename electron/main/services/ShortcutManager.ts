@@ -18,8 +18,14 @@ export class ShortcutManager {
         if (win2 && !win2.isDestroyed()) {
           const clipboardContent = await this.getSelectedContent(clipboard);
           console.log("clipboardContent", clipboardContent);
+
+          // 窗口可见性状态
+          const isVisible = win2.isVisible();
+
           win2.webContents.send("clipboard-update", {
             event: "clipboard-update",
+            text: clipboardContent.text,
+            isVisible: isVisible,
             ...clipboardContent,
           });
 

@@ -310,6 +310,43 @@ function setupIpcHandlers(
     }
   });
 
+  // 添加处理窗口可见性查询的IPC处理程序
+  ipcMain.handle("is-window-visible", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      return win.isVisible();
+    }
+    return false;
+  });
+
+  // 添加处理获取窗口大小的IPC处理程序
+  ipcMain.handle("get-window-size", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      // 从窗口中获取用户调整过的大小信息
+      const size = win.getSize();
+
+      // 使用安全的方式获取自定义属性
+      const customData = (win as any).customData || {};
+      const userHasResized = customData.userHasResized || false;
+      const customSize = customData.customSize || {
+        width: size[0],
+        height: size[1],
+      };
+
+      return {
+        size,
+        userHasResized,
+        customSize,
+      };
+    }
+    return {
+      size: [0, 0],
+      userHasResized: false,
+      customSize: { width: 940, height: 550 },
+    };
+  });
+
   // 添加处理关闭窗口的IPC处理程序
   ipcMain.on("close-window", (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
