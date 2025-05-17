@@ -259,9 +259,8 @@ export class WindowManager {
     this.win2.setAlwaysOnTop(true);
     this.win2.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-    // 显示窗口
-    this.win2.focus();
-    this.win2.show();
+    // 显示窗口但不聚焦，避免打断用户的当前操作
+    this.win2.showInactive();
   }
 
   createChildWindow(hash: string) {
@@ -271,6 +270,7 @@ export class WindowManager {
         nodeIntegration: true,
         contextIsolation: false,
       },
+      show: false, // 创建时不显示窗口，避免自动聚焦
     });
 
     if (this.viteDevServerUrl) {
@@ -283,6 +283,11 @@ export class WindowManager {
         childWindow.loadFile(this.indexHtml, { hash });
       }
     }
+
+    // 当窗口准备好后，显示窗口但不聚焦
+    childWindow.once("ready-to-show", () => {
+      childWindow.showInactive(); // 显示窗口但不聚焦
+    });
 
     return childWindow;
   }
