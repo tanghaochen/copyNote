@@ -255,10 +255,7 @@ export class WindowManager {
     }
 
     const globelMousePoint = screen.getCursorScreenPoint();
-    this.win2.setPosition(
-      parseInt(globelMousePoint.x.toString()),
-      parseInt(globelMousePoint.y.toString()),
-    );
+    this.win2.setPosition(globelMousePoint.x + 10, globelMousePoint.y + 10);
     this.win2.setAlwaysOnTop(true);
     this.win2.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
