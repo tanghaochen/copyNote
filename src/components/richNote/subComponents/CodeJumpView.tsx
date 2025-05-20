@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { NodeViewProps, NodeViewWrapper } from "@tiptap/react";
 import { IconButton, Tooltip } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
-import CodeIcon from "@mui/icons-material/Code";
 import CodeJumpDialog from "./CodeJumpDialog";
 
 export const CodeJumpView: React.FC<NodeViewProps> = ({
@@ -46,27 +45,44 @@ export const CodeJumpView: React.FC<NodeViewProps> = ({
     setIsDialogOpen(false);
   };
 
+  const { inline } = node.attrs;
+
   return (
-    <NodeViewWrapper>
+    <NodeViewWrapper as="span" className="image-view">
       <span
         className="code-jump-node"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={handleClick}
         style={{
           display: "inline-flex",
           alignItems: "center",
-          padding: "2px 6px",
-          borderRadius: "4px",
-          backgroundColor: "#f5f5f5",
-          cursor: "pointer",
           position: "relative",
+          margin: "0 2px",
         }}
       >
-        <CodeIcon sx={{ fontSize: 16, marginRight: 1 }} />
-        <span>{node.attrs.displayName || node.attrs.filePath}</span>
-        <span style={{ marginLeft: 4, color: "#666" }}>
-          :{node.attrs.lineNumber}
+        <span
+          onClick={handleClick}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "1px 4px",
+            borderRadius: "3px",
+            backgroundColor: "#f5f5f5",
+            cursor: "pointer",
+            fontSize: "0.9em",
+            lineHeight: "1.4",
+            border: "1px solid #e0e0e0",
+          }}
+        >
+          <img
+            src={`/statics/${node.attrs.editorType}.png`}
+            alt={node.attrs.editorType}
+            style={{ width: 14, height: 14, marginRight: 4 }}
+          />
+          <span>{node.attrs.displayName || node.attrs.filePath}</span>
+          <span style={{ marginLeft: 2, color: "#666" }}>
+            :{node.attrs.lineNumber}
+          </span>
         </span>
 
         {isHovered && (
@@ -76,13 +92,21 @@ export const CodeJumpView: React.FC<NodeViewProps> = ({
               onClick={handleEdit}
               sx={{
                 position: "absolute",
-                right: -30,
+                right: -24,
                 top: "50%",
                 transform: "translateY(-50%)",
                 padding: "2px",
+                backgroundColor: "#fff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                "&:hover": {
+                  backgroundColor: "#f0f0f0",
+                },
+                zIndex: 1,
+                width: 20,
+                height: 20,
               }}
             >
-              <EditIcon sx={{ fontSize: 16 }} />
+              <EditIcon sx={{ fontSize: 14 }} />
             </IconButton>
           </Tooltip>
         )}

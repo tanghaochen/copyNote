@@ -77,6 +77,7 @@ const extensions = [
   Color.configure({ types: [TextStyle.name, ListItem.name] }),
   TextStyle.configure({ types: [ListItem.name] }),
   Highlight.configure({ multicolor: true }),
+  // 自定义图片
   CustomImage.configure({
     inline: true,
     HTMLAttributes: {

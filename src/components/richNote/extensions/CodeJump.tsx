@@ -26,7 +26,7 @@ export const CodeJump = Node.create<CodeJumpOptions>({
 
   inline: true,
 
-  atom: true,
+  atom: false,
 
   addAttributes() {
     return {
