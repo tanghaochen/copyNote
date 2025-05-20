@@ -55,6 +55,8 @@ import TableRow from "@tiptap/extension-table-row";
 import Link from "@tiptap/extension-link";
 import "./styles/index.scss";
 import { debounce, throttle } from "lodash";
+import { CodeJump } from "./extensions/CodeJump";
+import CodeJumpDialog from "./subComponents/CodeJumpDialog.ts";
 
 const extensions = [
   StarterKit.configure({
@@ -111,6 +113,7 @@ const extensions = [
   TableRow,
   TableHeader,
   TableCell,
+  CodeJump,
 ];
 
 type RichNoteProps = {

@@ -17,6 +17,9 @@ import { worksListDB } from "@/database/worksLists";
 import HeadingSelector from "@/components/richNote/subComponents/headingSelector";
 import TpTable from "../tpTable";
 import { wrap } from "../../../../../node_modules/.vite/deps_temp_2e98178c/lodash-es";
+import CodeIcon from "@mui/icons-material/Code";
+import IconButton from "@mui/material/IconButton";
+import CodeJumpDialog from "@/components/richNote/subComponents/codeJumpDialog";
 
 const MenuBar = ({
   setTabs,
@@ -27,6 +30,7 @@ const MenuBar = ({
   const { editor } = useCurrentEditor();
   const [inputTitleValue, setInputTitleValue] = useState(tabItem.label);
   const editorRef = useRef(null);
+  const [isCodeJumpDialogOpen, setIsCodeJumpDialogOpen] = useState(false);
 
   // 当编辑器实例变化时更新引用
   useEffect(() => {
@@ -140,6 +144,14 @@ const MenuBar = ({
         <Divider orientation="vertical" variant="middle" flexItem />
 
         <TpTable editor={editor} />
+
+        <IconButton
+          onClick={() => setIsCodeJumpDialogOpen(true)}
+          size="small"
+          title="代码跳转"
+        >
+          <CodeIcon />
+        </IconButton>
       </div>
       <div className="w-full my-4">
         {isShowHeading && (
@@ -155,6 +167,15 @@ const MenuBar = ({
           />
         )}
       </div>
+
+      <CodeJumpDialog
+        open={isCodeJumpDialogOpen}
+        onClose={() => setIsCodeJumpDialogOpen(false)}
+        onSubmit={(values) => {
+          editor?.commands.setCodeJump(values);
+          setIsCodeJumpDialogOpen(false);
+        }}
+      />
     </div>
   );
 };
