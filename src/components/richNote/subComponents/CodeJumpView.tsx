@@ -12,7 +12,7 @@ export const CodeJumpView: React.FC<NodeViewProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleClick = async () => {
+  const handleClick = () => {
     const { editorType, filePath, lineNumber } = node.attrs;
     let command = "";
 
@@ -28,12 +28,8 @@ export const CodeJumpView: React.FC<NodeViewProps> = ({
         break;
     }
 
-    try {
-      // 使用 invoke 方式调用主进程
-      await window.electron.ipcRenderer.invoke("execute-command", command);
-    } catch (error) {
-      console.error("执行命令失败:", error);
-    }
+    // 使用 send 方式调用主进程
+    window.electronAPI.send("execute-command", command);
   };
 
   const handleEdit = (e: React.MouseEvent) => {

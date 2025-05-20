@@ -4,12 +4,12 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import { exec } from "child_process";
 import {
   installExtension,
   REDUX_DEVTOOLS,
   REACT_DEVELOPER_TOOLS,
 } from "electron-devtools-installer";
-import { exec } from "child_process";
 
 import { ImageManager } from "./services/ImageManager";
 import { DatabaseManager } from "./services/DatabaseManager";
@@ -125,6 +125,22 @@ function setupIpcHandlers(
 ) {
   // 设置数据库IPC处理程序
   dbManager.setupIpcHandlers(ipcMain);
+
+  // 添加执行命令的IPC处理程序
+  ipcMain.on("execute-command", (event, command) => {
+    console.log("执行命令:", command);
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`执行命令出错: ${error}`);
+        return;
+      }
+      if (stderr) {
+        console.error(`命令错误输出: ${stderr}`);
+        return;
+      }
+      console.log(`命令输出: ${stdout}`);
+    });
+  });
 
   // 设置图片下载IPC处理程序
   ipcMain.handle(
@@ -459,21 +475,6 @@ function createWindow() {
     const distPath = path.join(__dirname, "../../dist/index.html");
     win.loadFile(distPath);
   }
-
-  // 在 createWindow 函数中添加
-  ipcMain.on("execute-command", (event, command) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`执行命令出错: ${error}`);
-        return;
-      }
-      if (stderr) {
-        console.error(`命令错误输出: ${stderr}`);
-        return;
-      }
-      console.log(`命令输出: ${stdout}`);
-    });
-  });
 
   return win;
 }
