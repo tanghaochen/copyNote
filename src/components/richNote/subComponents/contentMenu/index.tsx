@@ -19,7 +19,7 @@ import TpTable from "../tpTable";
 import { wrap } from "../../../../../node_modules/.vite/deps_temp_2e98178c/lodash-es";
 import CodeIcon from "@mui/icons-material/Code";
 import IconButton from "@mui/material/IconButton";
-import CodeJumpDialog from "@/components/richNote/subComponents/codeJumpDialog";
+import CodeJumpDialog from "@/components/richNote/subComponents/codeJump/CodeJumpDialog";
 
 const MenuBar = ({
   setTabs,

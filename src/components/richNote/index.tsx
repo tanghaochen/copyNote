@@ -56,7 +56,7 @@ import Link from "@tiptap/extension-link";
 import "./styles/index.scss";
 import { debounce, throttle } from "lodash";
 import { CodeJump } from "./extensions/CodeJump";
-import CodeJumpDialog from "./subComponents/CodeJumpDialog.ts";
+import CodeJumpDialog from "./subComponents/codeJump/CodeJumpDialog";
 
 const extensions = [
   StarterKit.configure({

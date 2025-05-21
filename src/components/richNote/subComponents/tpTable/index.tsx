@@ -110,7 +110,7 @@ const TableOperations = ({ editor }: TableSelectorProps) => {
         ref={anchorRef}
         aria-label="table operations"
         className="ml-2"
-        style={{ minWidth: 100, justifyContent: "flex-start" }}
+        style={{ justifyContent: "flex-start" }}
       >
         <Button
           onClick={() => tableCommands[0].action()}

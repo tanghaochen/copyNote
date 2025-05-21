@@ -7,11 +7,14 @@ import CodeJumpDialog from "./CodeJumpDialog";
 export const CodeJumpView: React.FC<NodeViewProps> = ({
   node,
   updateAttributes,
+  getPos,
+  editor,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     const { editorType, filePath, lineNumber } = node.attrs;
     let command = "";
 
@@ -27,7 +30,6 @@ export const CodeJumpView: React.FC<NodeViewProps> = ({
         break;
     }
 
-    // 使用 send 方式调用主进程
     window.electronAPI.send("execute-command", command);
   };
 
@@ -45,10 +47,8 @@ export const CodeJumpView: React.FC<NodeViewProps> = ({
     setIsDialogOpen(false);
   };
 
-  const { inline } = node.attrs;
-
   return (
-    <NodeViewWrapper as="span" className="image-view">
+    <NodeViewWrapper as="span" className="code-jump-view">
       <span
         className="code-jump-node"
         onMouseEnter={() => setIsHovered(true)}
@@ -58,6 +58,7 @@ export const CodeJumpView: React.FC<NodeViewProps> = ({
           alignItems: "center",
           position: "relative",
           margin: "0 2px",
+          userSelect: "none",
         }}
       >
         <span
@@ -67,11 +68,13 @@ export const CodeJumpView: React.FC<NodeViewProps> = ({
             alignItems: "center",
             padding: "1px 4px",
             borderRadius: "3px",
-            backgroundColor: "#f5f5f5",
+            backgroundColor: isHovered ? "#e8e8e8" : "#f5f5f5",
             cursor: "pointer",
             fontSize: "0.9em",
             lineHeight: "1.4",
             border: "1px solid #e0e0e0",
+            transition: "all 0.2s ease",
+            position: "relative",
           }}
         >
           <img
@@ -83,33 +86,31 @@ export const CodeJumpView: React.FC<NodeViewProps> = ({
           <span style={{ marginLeft: 2, color: "#666" }}>
             :{node.attrs.lineNumber}
           </span>
+          {isHovered && (
+            <Tooltip title="编辑">
+              <IconButton
+                size="small"
+                onClick={handleEdit}
+                sx={{
+                  position: "absolute",
+                  right: 0,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  padding: "2px",
+                  backgroundColor: "#fff",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                  "&:hover": {
+                    backgroundColor: "#f0f0f0",
+                  },
+                  width: 20,
+                  height: 20,
+                }}
+              >
+                <EditIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Tooltip>
+          )}
         </span>
-
-        {isHovered && (
-          <Tooltip title="编辑">
-            <IconButton
-              size="small"
-              onClick={handleEdit}
-              sx={{
-                position: "absolute",
-                right: -24,
-                top: "50%",
-                transform: "translateY(-50%)",
-                padding: "2px",
-                backgroundColor: "#fff",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                "&:hover": {
-                  backgroundColor: "#f0f0f0",
-                },
-                zIndex: 1,
-                width: 20,
-                height: 20,
-              }}
-            >
-              <EditIcon sx={{ fontSize: 14 }} />
-            </IconButton>
-          </Tooltip>
-        )}
 
         <CodeJumpDialog
           open={isDialogOpen}

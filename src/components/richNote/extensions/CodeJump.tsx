@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
-import { CodeJumpView } from "../subComponents/CodeJumpView";
+import { CodeJumpView } from "../subComponents/codeJump/CodeJumpView";
 
 export interface CodeJumpOptions {
   HTMLAttributes: Record<string, any>;
