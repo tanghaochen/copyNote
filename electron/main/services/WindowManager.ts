@@ -1,5 +1,8 @@
 import { BrowserWindow, screen, session, shell } from "electron";
 import path from "path";
+// 修改导入方式，处理CommonJS和ESM兼容性问题
+// import lodash from "lodash";
+// const { throttle } = lodash;
 
 export class WindowManager {
   private win: BrowserWindow | null = null;
@@ -136,6 +139,73 @@ export class WindowManager {
       // 添加鼠标离开窗口的检测
       let mouseLeaveTimeout: NodeJS.Timeout | null = null;
       let isPinned = false;
+      let isMouseInWindow = false; // 新增：跟踪鼠标是否在窗口内
+      let isMoving = false; // 新增：跟踪窗口是否正在移动
+
+      // 将isPinned作为窗口的属性保存
+      (this.win2 as any).isPinned = isPinned;
+
+      // 监听窗口开始移动事件
+      this.win2.on("will-move", () => {
+        isMoving = true;
+        console.log("窗口开始移动");
+        // 窗口移动时清除自动关闭计时器
+        if (mouseLeaveTimeout) {
+          clearTimeout(mouseLeaveTimeout);
+          mouseLeaveTimeout = null;
+        }
+      });
+
+      // 监听窗口大小调整事件
+      this.win2.on("resize", () => {
+        console.log("窗口大小正在调整");
+        // 窗口调整大小时也清除自动关闭计时器
+        if (mouseLeaveTimeout) {
+          clearTimeout(mouseLeaveTimeout);
+          mouseLeaveTimeout = null;
+        }
+      });
+
+      // 监听窗口调整大小结束事件
+      this.win2.on("resized", () => {
+        console.log("窗口大小调整结束");
+
+        // 立即将isMoving设置为false，确保状态及时更新
+        isMoving = false;
+        console.log("重置isMoving状态为false");
+
+        // 如果窗口未被固定且鼠标不在窗口内，立即设置自动关闭计时器
+        if (!isPinned && !isMouseInWindow) {
+          console.log("调整大小结束，立即设置自动关闭计时器");
+          setAutoCloseTimer();
+        }
+      });
+
+      // 监听窗口持续移动事件
+      this.win2.on("move", () => {
+        // 窗口正在移动中，确保状态为移动中
+        isMoving = true;
+        // 确保移动过程中不会自动关闭
+        if (mouseLeaveTimeout) {
+          clearTimeout(mouseLeaveTimeout);
+          mouseLeaveTimeout = null;
+        }
+      });
+
+      // 监听窗口移动结束事件
+      this.win2.on("moved", () => {
+        console.log("窗口移动结束");
+
+        // 立即将isMoving设置为false，确保状态及时更新
+        isMoving = false;
+        console.log("重置isMoving状态为false");
+
+        // 如果窗口未被固定且鼠标不在窗口内，立即设置自动关闭计时器
+        if (!isPinned && !isMouseInWindow) {
+          console.log("移动结束，立即设置自动关闭计时器");
+          setAutoCloseTimer();
+        }
+      });
 
       // 查询win2窗口是否存在或显示，监听消息查询
       this.win2.webContents.on("ipc-message", (event, channel, ...args) => {
@@ -149,26 +219,61 @@ export class WindowManager {
         }
       });
 
+      // 设置自动关闭定时器
+      const setAutoCloseTimer = () => {
+        if (mouseLeaveTimeout) {
+          clearTimeout(mouseLeaveTimeout);
+          mouseLeaveTimeout = null;
+        }
+
+        // 如果窗口未被固定且鼠标不在窗口内，且窗口不在移动中，设置定时器
+        if (!isPinned && !isMouseInWindow && !isMoving) {
+          console.log("设置自动关闭计时器");
+          mouseLeaveTimeout = setTimeout(() => {
+            if (this.win2 && !this.win2.isDestroyed()) {
+              this.win2.hide();
+              console.log("自动关闭win2窗口");
+            }
+          }, 3000);
+        } else {
+          console.log(
+            "不设置自动关闭计时器，isPinned:",
+            isPinned,
+            "isMouseInWindow:",
+            isMouseInWindow,
+            "isMoving:",
+            isMoving,
+          );
+        }
+      };
+
       // 监听从渲染进程发来的固定窗口消息
       this.win2.webContents.on("ipc-message", (event, channel, ...args) => {
         if (channel === "pin-window") {
           isPinned = args[0];
-          // 如果取消固定且有定时器，重新开始计时
-          if (!isPinned && mouseLeaveTimeout) {
-            clearTimeout(mouseLeaveTimeout);
-            mouseLeaveTimeout = setTimeout(() => {
-              if (
-                this.win2 &&
-                !this.win2.isDestroyed() &&
-                !this.win2.isFocused()
-              ) {
-                this.win2.hide();
-              }
-            }, 3000);
+          // 更新isPinned属性
+          if (this.win2) {
+            (this.win2 as any).isPinned = isPinned;
+          }
+          console.log("窗口固定状态更改为:", isPinned);
+
+          // 更新固定状态后立即处理定时器
+          if (isPinned) {
+            // 如果固定了窗口，清除现有的定时器
+            if (mouseLeaveTimeout) {
+              clearTimeout(mouseLeaveTimeout);
+              mouseLeaveTimeout = null;
+            }
+          } else {
+            // 如果取消固定，立即设置新的定时器（只有当鼠标不在窗口内时）
+            if (!isMouseInWindow) {
+              setAutoCloseTimer();
+            }
           }
         } else if (channel === "resize-window") {
           // 处理窗口大小调整请求
           const { width, height } = args[0];
+          // 使用原始方式设置窗口大小
           if (this.win2 && !this.win2.isDestroyed()) {
             console.log("调整窗口大小为:", width, height);
             this.win2.setSize(width, height);
@@ -180,37 +285,147 @@ export class WindowManager {
           } else {
             event.returnValue = false;
           }
+        } else if (channel === "close-window") {
+          // 处理关闭窗口请求 - 直接执行，不使用节流
+          console.log("收到关闭窗口请求");
+          if (this.win2 && !this.win2.isDestroyed()) {
+            this.win2.hide();
+          }
+        } else if (channel === "auto-close-check") {
+          // 检查并设置自动关闭定时器（只有当鼠标不在窗口内时）
+          if (!isPinned && !isMouseInWindow) {
+            setAutoCloseTimer();
+          }
+        } else if (channel === "mouse-enter-window") {
+          // 处理鼠标进入窗口的消息
+          isMouseInWindow = true;
+          console.log("鼠标进入窗口");
+          // 鼠标进入窗口时，如果不是固定状态，取消定时器
+          if (!isPinned && mouseLeaveTimeout) {
+            clearTimeout(mouseLeaveTimeout);
+            mouseLeaveTimeout = null;
+          }
+        } else if (channel === "mouse-leave-window") {
+          // 处理鼠标离开窗口的消息
+          isMouseInWindow = false;
+          console.log("鼠标离开窗口");
+
+          // 检查isMoving状态是否异常停留在true
+          if (isMoving) {
+            console.log("检测到isMoving为true但鼠标已离开，强制重置为false");
+            isMoving = false;
+          }
+
+          // 鼠标离开窗口时，如果不是固定状态，设置自动关闭定时器
+          if (!isPinned) {
+            setAutoCloseTimer();
+          }
+        } else if (channel === "window-drag-start") {
+          // 处理窗口开始拖拽的消息
+          isMoving = true;
+          console.log("渲染进程通知: 窗口开始拖拽");
+          // 清除自动关闭计时器
+          if (mouseLeaveTimeout) {
+            clearTimeout(mouseLeaveTimeout);
+            mouseLeaveTimeout = null;
+          }
+        } else if (channel === "window-drag-end") {
+          // 处理窗口结束拖拽的消息
+          console.log("渲染进程通知: 窗口结束拖拽");
+
+          // 立即将isMoving设置为false
+          isMoving = false;
+          console.log("重置isMoving状态为false (拖拽结束)");
+
+          // 如果窗口未被固定且鼠标不在窗口内，立即设置自动关闭计时器
+          if (!isPinned && !isMouseInWindow) {
+            console.log("拖拽结束，立即设置自动关闭计时器");
+            setAutoCloseTimer();
+          }
+        }
+      });
+
+      // 窗口显示时设置自动关闭定时器
+      this.win2.on("show", () => {
+        // 如果窗口未被固定且鼠标不在窗口内，设置自动关闭定时器
+        if (!isPinned && !isMouseInWindow) {
+          setAutoCloseTimer();
         }
       });
 
       // 监听鼠标进入窗口事件
       this.win2.on("focus", () => {
-        if (mouseLeaveTimeout) {
-          clearTimeout(mouseLeaveTimeout);
-          mouseLeaveTimeout = null;
+        // 如果窗口被固定，则不自动关闭
+        if (isPinned) {
+          if (mouseLeaveTimeout) {
+            clearTimeout(mouseLeaveTimeout);
+            mouseLeaveTimeout = null;
+          }
         }
+        // 注意：仅依赖mouseenter/mouseleave事件来处理定时器，不在focus时取消定时器
       });
 
       // 监听鼠标离开窗口事件
       this.win2.on("blur", () => {
-        // 如果窗口没有被固定，则设置定时器
-        if (!isPinned) {
-          if (mouseLeaveTimeout) {
-            clearTimeout(mouseLeaveTimeout);
-          }
-          mouseLeaveTimeout = setTimeout(() => {
-            if (
-              this.win2 &&
-              !this.win2.isDestroyed() &&
-              !this.win2.isFocused()
-            ) {
-              this.win2.hide();
-            } else if (this.win2 && !this.win2.isDestroyed()) {
-              // 窗口仍然可见
-              console.log("窗口仍然可见");
+        // 窗口失去焦点时，我们不立即设置定时器
+        // 我们会依赖mouseleave事件来处理，因为鼠标可能仍在窗口内
+      });
+
+      // 窗口加载完成后注入鼠标事件监听脚本
+      this.win2.webContents.on("did-finish-load", () => {
+        // 注入监听鼠标进入和离开窗口的脚本
+        this.win2?.webContents
+          .executeJavaScript(
+            `
+          // 跟踪鼠标是否在窗口内
+          let isMouseInWindow = false;
+          
+          // 监听鼠标进入窗口
+          document.body.addEventListener('mouseenter', () => {
+            console.log('鼠标进入窗口');
+            isMouseInWindow = true;
+            window.ipcRenderer?.send('mouse-enter-window');
+          });
+          
+          // 监听鼠标离开窗口
+          document.body.addEventListener('mouseleave', () => {
+            console.log('鼠标离开窗口');
+            isMouseInWindow = false;
+            window.ipcRenderer?.send('mouse-leave-window');
+          });
+          
+          // 使用mousemove作为额外的检测机制
+          document.addEventListener('mousemove', () => {
+            if (!isMouseInWindow) {
+              console.log('鼠标移动检测到在窗口内');
+              isMouseInWindow = true;
+              window.ipcRenderer?.send('mouse-enter-window');
             }
-          }, 3000);
-        }
+          });
+          
+          // 全局监听鼠标移动
+          window.addEventListener('mousemove', (e) => {
+            // 检查鼠标是否在窗口内
+            const isInside = 
+              e.clientX >= 0 && 
+              e.clientX <= window.innerWidth && 
+              e.clientY >= 0 && 
+              e.clientY <= window.innerHeight;
+            
+            // 状态发生变化时才发送消息
+            if (isInside && !isMouseInWindow) {
+              console.log('全局检测到鼠标进入窗口');
+              isMouseInWindow = true;
+              window.ipcRenderer?.send('mouse-enter-window');
+            } else if (!isInside && isMouseInWindow) {
+              console.log('全局检测到鼠标离开窗口');
+              isMouseInWindow = false;
+              window.ipcRenderer?.send('mouse-leave-window');
+            }
+          });
+        `,
+          )
+          .catch((err) => console.error("注入鼠标事件监听脚本失败:", err));
       });
 
       // this.win2.webContents.openDevTools();
@@ -263,6 +478,8 @@ export class WindowManager {
 
     // 显示窗口但不聚焦，避免打断用户的当前操作
     this.win2.showInactive();
+
+    // 窗口显示时将自动触发show事件，该事件已设置自动关闭定时器的逻辑
   }
 
   createChildWindow(hash: string) {

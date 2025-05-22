@@ -256,6 +256,26 @@ function setupIpcHandlers(
       });
     }
   });
+
+  // 添加处理鼠标进入窗口的IPC处理程序
+  ipcMain.on("mouse-enter-window", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      // 消息将由WindowManager中的ipc-message事件处理
+      // 这里可以添加额外的处理逻辑
+      console.log("主进程收到鼠标进入窗口事件");
+    }
+  });
+
+  // 添加处理鼠标离开窗口的IPC处理程序
+  ipcMain.on("mouse-leave-window", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      // 消息将由WindowManager中的ipc-message事件处理
+      // 这里可以添加额外的处理逻辑
+      console.log("主进程收到鼠标离开窗口事件");
+    }
+  });
 }
 
 // 设置应用程序事件

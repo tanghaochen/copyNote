@@ -42,6 +42,7 @@ interface HighlightProps {
 // 自定义样式组件
 const ControlBar = styled("div")(
   ({ theme, isPinned }: { theme?: any; isPinned: boolean }) => ({
+    width: "100%",
     backgroundColor: "#1f2937", // 深灰色背景
     padding: "0.25rem 1rem",
     borderRadius: "0.375rem 0.375rem 0 0", // 只有顶部圆角
@@ -85,7 +86,7 @@ const KeywordItem = styled("div")(({ isActive }: { isActive: boolean }) => ({
     backgroundColor: "#f0f7ff",
   },
 }));
-let isWindowVisible = false;
+
 const TextHighlighter = ({
   textContent,
   items = [],
@@ -210,10 +211,7 @@ const TextHighlighter = ({
 
     setVisibleContent(true);
 
-    // 获取窗口信息
-    // const win2: Number[] = await window.ipcRenderer?.invoke("get-window-size");
-    // console.log("get-window-size", win2);
-    // 通知主进程调整窗口大小为完整尺寸
+    // 使用直接方式调整窗口大小
     window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
 
     // 查找对应的ID
@@ -252,7 +250,7 @@ const TextHighlighter = ({
         // 显示面板
         setShowPanel(true);
 
-        // 通知主进程调整窗口大小为完整尺寸
+        // 使用直接方式调整窗口大小
         window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
 
         try {
@@ -281,13 +279,14 @@ const TextHighlighter = ({
     console.log("检测到关键词变化，数量:", foundKeywords.length);
 
     // 检查窗口是否可见，不可见则不调整大小
-    if (!isWindowVisible) {
+    if (!isVisibleContent) {
       console.log("窗口不可见，跳过尺寸调整");
       return;
     }
 
     // 如果没有找到关键词，设置小窗口大小
     if (foundKeywords.length === 0) {
+      console.log("没有找到关键词，设置小窗口大小");
       window.ipcRenderer?.send("resize-window", { width: 180, height: 100 });
       return;
     }
@@ -297,6 +296,7 @@ const TextHighlighter = ({
       if (keywordsContainerRef.current) {
         if (showPanel) {
           // 显示详细面板时，设置完整窗口尺寸
+          console.log("显示详细面板，设置完整窗口尺寸");
           window.ipcRenderer?.send("resize-window", {
             width: 940,
             height: 550,
@@ -312,6 +312,11 @@ const TextHighlighter = ({
           const numItems = Math.min(foundKeywords.length, 5); // 最多显示5个
           const estimatedHeight = numItems * itemHeight + 30; // 加上padding
 
+          console.log(
+            "调整窗口大小为:",
+            Math.ceil(width) + 40,
+            Math.max(estimatedHeight, 100),
+          );
           window.ipcRenderer?.send("resize-window", {
             width: Math.ceil(width) + 40, // 宽度加上一些额外空间
             height: Math.max(estimatedHeight, 100), // 最小高度100px
@@ -319,12 +324,14 @@ const TextHighlighter = ({
         }
       }
     }, 200); // 增加延迟确保DOM完全渲染
-  }, [foundKeywords, showPanel, isWindowVisible]);
+  }, [foundKeywords, showPanel, isVisibleContent]);
 
   // 监听ESC键盘事件关闭窗口
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        console.log("检测到ESC键，关闭窗口");
+        // 直接发送关闭窗口消息，不使用节流
         window.ipcRenderer?.send("close-window");
       }
     };
@@ -419,10 +426,12 @@ const App = () => {
 
   const handlePin = () => {
     setIsPinned(!isPinned);
+    console.log("设置窗口固定状态:", !isPinned);
     window.ipcRenderer?.send("pin-window", !isPinned);
   };
 
   const handleClose = () => {
+    console.log("关闭窗口按钮被点击");
     window.ipcRenderer?.send("close-window");
     setIsClosed(true);
   };
@@ -522,15 +531,6 @@ const App = () => {
   useEffect(() => {
     getWorksList();
 
-    // 监听窗口可见性变化
-    // window.ipcRenderer?.on(
-    //   "window-visibility-change",
-    //   (event, { isVisible }) => {
-    //     console.log("窗口可见性变化:", isVisible);
-    //     setIsWindowVisible(isVisible);
-    //   },
-    // );
-
     // 监听剪贴板更新
     window.ipcRenderer?.on("clipboard-update", async (event: any) => {
       console.log("收到剪贴板更新事件:", event);
@@ -556,18 +556,37 @@ const App = () => {
 
     return () => {
       window.ipcRenderer?.off?.("clipboard-update", handleClipboardUpdate);
-      // 移除窗口可见性监听器
-      window.ipcRenderer?.off?.("window-visibility-change", () => {
-        console.log("移除窗口可见性监听器");
-      });
     };
   }, [handleClipboardUpdate, isWindowVisible]);
 
   if (isClosed) return null;
 
   return (
-    <div className="noteHightLightRoot">
-      <ControlBar isPinned={isPinned}>
+    <div
+      className="noteHightLightRoot"
+      onMouseEnter={() => {
+        console.log("React组件检测到鼠标进入");
+        window.ipcRenderer?.send("mouse-enter-window");
+      }}
+      onMouseLeave={(e) => {
+        console.log("React组件检测到鼠标离开");
+        window.ipcRenderer?.send("mouse-leave-window");
+
+        // 强制发送停止移动消息，确保isMoving重置为false
+        window.ipcRenderer?.send("window-drag-end");
+      }}
+    >
+      <ControlBar
+        isPinned={isPinned}
+        onMouseDown={() => {
+          console.log("开始拖拽窗口");
+          window.ipcRenderer?.send("window-drag-start");
+        }}
+        onMouseUp={() => {
+          console.log("结束拖拽窗口");
+          window.ipcRenderer?.send("window-drag-end");
+        }}
+      >
         <Box sx={{ display: "flex", gap: "0.5rem" }}>
           <IconButton
             size="small"
