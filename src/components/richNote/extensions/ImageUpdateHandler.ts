@@ -100,7 +100,6 @@ async function processEditorImages(editor: any) {
 // 处理单个图片
 async function processImage(imageItem: any, editor: any) {
   const { src, alt, title, type } = imageItem;
-  console.log(`处理${type}图片:`, src);
 
   try {
     let localPath;
@@ -174,7 +173,6 @@ async function processImage(imageItem: any, editor: any) {
 
       // 标记为已处理
       processedImages.add(src);
-      console.log("图片处理成功:", src, "->", formattedPath);
     }
   } catch (error) {
     console.error("处理图片失败:", error);

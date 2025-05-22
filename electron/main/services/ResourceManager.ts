@@ -3,18 +3,29 @@ import fs from "fs";
 import path from "path";
 
 export class ResourceManager {
-  private userDataPath: string;
+  private basePath: string;
   private resourcesDir: string;
   private imagesDir: string;
   private documentsDir: string;
   private databaseDir: string;
+  private iconsDir: string;
 
   constructor() {
-    this.userDataPath = app.getPath("userData");
-    this.resourcesDir = path.join(this.userDataPath, "resources");
+    // 根据环境确定基础路径
+    if (process.env.NODE_ENV === "development") {
+      // 开发环境：使用项目根目录下的 testdata
+      this.basePath = path.resolve("testdata");
+    } else {
+      // 生产环境：使用系统用户数据目录
+      this.basePath = app.getPath("userData");
+    }
+
+    // 设置资源目录结构
+    this.resourcesDir = path.join(this.basePath, "resources");
     this.imagesDir = path.join(this.resourcesDir, "images");
     this.documentsDir = path.join(this.resourcesDir, "documents");
     this.databaseDir = path.join(this.resourcesDir, "database");
+    this.iconsDir = path.join(this.resourcesDir, "icons");
 
     this.ensureDirectories();
   }
@@ -26,6 +37,7 @@ export class ResourceManager {
       this.imagesDir,
       this.documentsDir,
       this.databaseDir,
+      this.iconsDir,
     ];
 
     directories.forEach((dir) => {
@@ -33,6 +45,16 @@ export class ResourceManager {
         fs.mkdirSync(dir, { recursive: true });
       }
     });
+  }
+
+  // 获取基础路径
+  getBasePath() {
+    return this.basePath;
+  }
+
+  // 获取资源根目录
+  getResourcesDir() {
+    return this.resourcesDir;
   }
 
   // 获取图片存储路径
@@ -48,6 +70,11 @@ export class ResourceManager {
   // 获取数据库存储路径
   getDatabaseDir() {
     return this.databaseDir;
+  }
+
+  // 获取图标存储路径
+  getIconsDir() {
+    return this.iconsDir;
   }
 
   // 保存base64图片
@@ -117,6 +144,46 @@ export class ResourceManager {
       return filePath;
     } catch (error) {
       console.error("保存网络图片失败:", error);
+      throw error;
+    }
+  }
+
+  // 保存图标
+  async saveIcon(iconData: string | Buffer, fileName: string): Promise<string> {
+    try {
+      const filePath = path.join(this.iconsDir, fileName);
+
+      if (typeof iconData === "string") {
+        // 如果是base64字符串
+        const base64Image = iconData.replace(/^data:image\/\w+;base64,/, "");
+        const buffer = Buffer.from(base64Image, "base64");
+        fs.writeFileSync(filePath, buffer);
+      } else {
+        // 如果是Buffer
+        fs.writeFileSync(filePath, iconData);
+      }
+
+      console.log("图标已保存到:", filePath);
+      return filePath;
+    } catch (error) {
+      console.error("保存图标失败:", error);
+      throw error;
+    }
+  }
+
+  // 保存文档
+  async saveDocument(
+    fileData: Buffer,
+    fileName: string,
+    type: "pdf" | "excel" | "word",
+  ): Promise<string> {
+    try {
+      const filePath = path.join(this.documentsDir, fileName);
+      fs.writeFileSync(filePath, fileData);
+      console.log(`${type}文档已保存到:`, filePath);
+      return filePath;
+    } catch (error) {
+      console.error(`保存${type}文档失败:`, error);
       throw error;
     }
   }

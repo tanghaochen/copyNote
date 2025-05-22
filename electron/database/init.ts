@@ -16,22 +16,14 @@ import { migrations } from "./migrations/index";
 import crypto from "crypto";
 import { createGzip } from "zlib";
 import { pipeline } from "stream/promises";
+import { ResourceManager } from "../main/services/ResourceManager";
+
+// 创建ResourceManager实例
+const resourceManager = new ResourceManager();
 
 // 根据环境确定数据库存储路径
 const getDatabasePath = () => {
-  if (process.env.NODE_ENV === "development") {
-    // 开发环境：使用项目根目录下的 testdata
-    return path.resolve("testdata");
-  } else {
-    // 生产环境：使用系统文档目录
-    const appName = "CPNotes"; // 您的应用名称
-    const userDataPath = path.join(
-      app.getPath("userData"),
-      "resources",
-      "database",
-    );
-    return userDataPath;
-  }
+  return resourceManager.getDatabaseDir();
 };
 
 // 确保数据库目录存在
