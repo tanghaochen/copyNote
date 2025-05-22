@@ -16,6 +16,7 @@
     "dev": "chcp 65001 | vite",
     "dev:clean": ".\\scripts\\dev-clean.bat",
     "dev:update": "cross-env ELECTRON_IS_DEV=0 npm run dev",
+    "clear-cache": ".\\scripts\\clear-cache.bat",
     "build": "vite build && electron-builder",
     "build:win": "vite build && electron-builder --win --x64",
     "build:mac": "vite build && electron-builder --mac",

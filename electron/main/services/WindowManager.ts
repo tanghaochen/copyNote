@@ -128,6 +128,8 @@ export class WindowManager {
         alwaysOnTop: true,
         webPreferences: {
           preload: this.preload,
+          webSecurity: false, // 允许加载本地资源
+          nodeIntegration: true,
         },
       });
 

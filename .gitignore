@@ -8,11 +8,13 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+testdata
 dist
 dist-ssr
 dist-electron
 release
 *.local
+.vite_cache
 
 # Editor directories and files
 .vscode/.debug.env
