@@ -8,7 +8,7 @@ const processedImages = new Set<string>();
 const processingImages = new Set<string>();
 
 // 处理编辑器中的网络图片
-async function processEditorImages(editor) {
+async function processEditorImages(editor: any) {
   if (!editor) return;
 
   // 获取编辑器内容
@@ -18,22 +18,26 @@ async function processEditorImages(editor) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(content, "text/html");
 
-  // 查找所有网络图片
+  // 查找所有网络图片和base64图片
   const networkImages = doc.querySelectorAll('img[src^="http"]');
+  const base64Images = doc.querySelectorAll('img[src^="data:"]');
 
-  if (networkImages.length === 0) {
-    console.log("编辑器中没有网络图片需要处理");
+  if (networkImages.length === 0 && base64Images.length === 0) {
+    console.log("编辑器中没有需要处理的图片");
     return;
   }
 
-  console.log(`发现${networkImages.length}张网络图片，开始处理`);
+  console.log(
+    `发现${networkImages.length}张网络图片和${base64Images.length}张base64图片，开始处理`,
+  );
 
   // 创建处理队列
   const processingQueue = [];
 
-  // 将图片添加到处理队列
+  // 将网络图片添加到处理队列
   for (const img of networkImages) {
     const src = img.getAttribute("src");
+    if (!src) continue;
 
     // 跳过已处理或正在处理的图片
     if (processedImages.has(src) || processingImages.has(src)) {
@@ -48,11 +52,34 @@ async function processEditorImages(editor) {
       src,
       alt: img.getAttribute("alt") || "图片",
       title: img.getAttribute("title") || "",
+      type: "network",
+    });
+  }
+
+  // 将base64图片添加到处理队列
+  for (const img of base64Images) {
+    const src = img.getAttribute("src");
+    if (!src) continue;
+
+    // 跳过已处理或正在处理的图片
+    if (processedImages.has(src) || processingImages.has(src)) {
+      continue;
+    }
+
+    // 标记为正在处理
+    processingImages.add(src);
+
+    // 添加到处理队列
+    processingQueue.push({
+      src,
+      alt: img.getAttribute("alt") || "图片",
+      title: img.getAttribute("title") || "",
+      type: "base64",
     });
   }
 
   if (processingQueue.length === 0) {
-    console.log("没有新的网络图片需要处理");
+    console.log("没有新的图片需要处理");
     return;
   }
 
@@ -61,7 +88,7 @@ async function processEditorImages(editor) {
   // 处理队列中的图片
   for (const item of processingQueue) {
     try {
-      await processNetworkImage(item, editor);
+      await processImage(item, editor);
     } catch (error) {
       console.error(`处理图片失败: ${item.src}`, error);
       // 从处理中列表移除
@@ -70,110 +97,70 @@ async function processEditorImages(editor) {
   }
 }
 
-// 处理单个网络图片
-async function processNetworkImage(imageItem, editor) {
-  const { src, alt, title } = imageItem;
-  console.log("处理网络图片:", src);
+// 处理单个图片
+async function processImage(imageItem: any, editor: any) {
+  const { src, alt, title, type } = imageItem;
+  console.log(`处理${type}图片:`, src);
 
   try {
-    // 设置referer
-    let referer = null;
-    let originalUrl = null;
+    let localPath;
 
-    // 根据图片URL设置合适的referer
-    const url = new URL(src);
-    const hostname = url.hostname;
+    if (type === "base64") {
+      // 处理base64图片
+      localPath = await window.ipcRenderer.invoke("save-base64-image", src);
+    } else {
+      // 处理网络图片
+      let referer = null;
+      let originalUrl = null;
 
-    // 常见网站的referer设置
-    if (hostname.includes("csdnimg.cn") || hostname.includes("csdn.net")) {
-      referer = "https://blog.csdn.net";
-      originalUrl = document.referrer || "https://blog.csdn.net";
-    } else if (
-      hostname.includes("mmbiz.qpic.cn") ||
-      hostname.includes("mmbiz.qlogo.cn")
-    ) {
-      referer = "https://mp.weixin.qq.com";
-      originalUrl = document.referrer || "https://mp.weixin.qq.com";
-    } else if (hostname.includes("zhimg.com")) {
-      referer = "https://www.zhihu.com";
-      originalUrl = document.referrer || "https://www.zhihu.com";
-    } else if (
-      hostname.includes("jianshu.io") ||
-      hostname.includes("jianshu.com")
-    ) {
-      referer = "https://www.jianshu.com";
-      originalUrl = document.referrer || "https://www.jianshu.com";
-    } else if (hostname.includes("juejin.cn")) {
-      referer = "https://juejin.cn";
-      originalUrl = document.referrer || "https://juejin.cn";
-    } else if (
-      hostname.includes("byteimg.com") ||
-      hostname.includes("toutiao.com") ||
-      hostname.includes("douyin.com") ||
-      hostname.includes("bytedance.com") ||
-      hostname.includes("feishu.cn")
-    ) {
-      // 字节跳动相关网站
-      referer = "https://juejin.cn";
-      originalUrl = document.referrer || "https://juejin.cn";
+      // 根据图片URL设置合适的referer
+      const url = new URL(src);
+      const hostname = url.hostname;
 
-      // 对于字节跳动的图片，我们需要保留查询参数
-      const cleanSrc = src; // 不清理URL，保留所有参数
-      console.log("字节跳动图片，保留完整URL:", cleanSrc);
-
-      // 下载图片
-      const localPath = await window.ipcRenderer.invoke(
-        "download-image",
-        cleanSrc,
-        referer,
-        originalUrl,
-        true, // 标记为字节跳动图片
-      );
-
-      if (localPath) {
-        // 格式化路径
-        let formattedPath = localPath.replace(/\\/g, "/");
-        if (!formattedPath.startsWith("/")) {
-          formattedPath = "/" + formattedPath;
-        }
-
-        // 替换编辑器中的图片
-        replaceImageInEditor(
-          editor,
-          src,
-          `file:///${formattedPath}`,
-          alt,
-          title,
-        );
-
-        // 标记为已处理
-        processedImages.add(src);
-        console.log("字节跳动图片处理成功:", src, "->", formattedPath);
+      // 常见网站的referer设置
+      if (hostname.includes("csdnimg.cn") || hostname.includes("csdn.net")) {
+        referer = "https://blog.csdn.net";
+        originalUrl = document.referrer || "https://blog.csdn.net";
+      } else if (
+        hostname.includes("mmbiz.qpic.cn") ||
+        hostname.includes("mmbiz.qlogo.cn")
+      ) {
+        referer = "https://mp.weixin.qq.com";
+        originalUrl = document.referrer || "https://mp.weixin.qq.com";
+      } else if (hostname.includes("zhimg.com")) {
+        referer = "https://www.zhihu.com";
+        originalUrl = document.referrer || "https://www.zhihu.com";
+      } else if (
+        hostname.includes("jianshu.io") ||
+        hostname.includes("jianshu.com")
+      ) {
+        referer = "https://www.jianshu.com";
+        originalUrl = document.referrer || "https://www.jianshu.com";
+      } else if (hostname.includes("juejin.cn")) {
+        referer = "https://juejin.cn";
+        originalUrl = document.referrer || "https://juejin.cn";
+      } else if (
+        hostname.includes("byteimg.com") ||
+        hostname.includes("toutiao.com") ||
+        hostname.includes("douyin.com") ||
+        hostname.includes("bytedance.com") ||
+        hostname.includes("feishu.cn")
+      ) {
+        referer = "https://juejin.cn";
+        originalUrl = document.referrer || "https://juejin.cn";
+      } else {
+        referer = `${url.protocol}//${url.hostname}`;
+        originalUrl = document.referrer || `${url.protocol}//${url.hostname}`;
       }
 
-      // 从处理中列表移除
-      processingImages.delete(src);
-      return;
-    } else {
-      // 对于其他网站，使用图片所在域名作为referer
-      referer = `${url.protocol}//${url.hostname}`;
-      originalUrl = document.referrer || `${url.protocol}//${url.hostname}`;
+      // 下载图片
+      localPath = await window.ipcRenderer.invoke(
+        "save-network-image",
+        src,
+        referer,
+        originalUrl,
+      );
     }
-
-    console.log("设置referer:", referer);
-    console.log("原始页面URL:", originalUrl);
-
-    // 清理URL，移除查询参数
-    const cleanSrc = src.split("?")[0];
-    console.log("清理后的URL:", cleanSrc);
-
-    // 下载图片
-    const localPath = await window.ipcRenderer.invoke(
-      "download-image",
-      cleanSrc,
-      referer,
-      originalUrl,
-    );
 
     if (localPath) {
       // 格式化路径
@@ -188,8 +175,6 @@ async function processNetworkImage(imageItem, editor) {
       // 标记为已处理
       processedImages.add(src);
       console.log("图片处理成功:", src, "->", formattedPath);
-    } else {
-      console.warn("图片下载失败:", src);
     }
   } catch (error) {
     console.error("处理图片失败:", error);
@@ -200,7 +185,13 @@ async function processNetworkImage(imageItem, editor) {
 }
 
 // 替换编辑器中的图片
-function replaceImageInEditor(editor, oldSrc, newSrc, alt, title) {
+function replaceImageInEditor(
+  editor: any,
+  oldSrc: string,
+  newSrc: string,
+  alt: string,
+  title: string,
+) {
   if (!editor) return;
 
   // 获取编辑器内容

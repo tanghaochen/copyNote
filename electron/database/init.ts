@@ -25,7 +25,11 @@ const getDatabasePath = () => {
   } else {
     // 生产环境：使用系统文档目录
     const appName = "CPNotes"; // 您的应用名称
-    const userDataPath = path.join(app.getPath("documents"), appName);
+    const userDataPath = path.join(
+      app.getPath("userData"),
+      "resources",
+      "database",
+    );
     return userDataPath;
   }
 };
