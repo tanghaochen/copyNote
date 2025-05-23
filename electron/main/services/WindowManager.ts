@@ -479,7 +479,123 @@ export class WindowManager {
     // 显示窗口但不聚焦，避免打断用户的当前操作
     this.win2.showInactive();
 
-    // 窗口显示时将自动触发show事件，该事件已设置自动关闭定时器的逻辑
+    // 窗口显示时启动自动关闭计时器
+    // 在实际应用中，这个定时器会在用户鼠标进入窗口时被清除
+    // 这里获取窗口的自定义属性来确定是否设置定时器
+    const isPinned = (this.win2 as any).isPinned || false;
+
+    if (!isPinned) {
+      console.log("设置显示窗口3秒后自动关闭定时器");
+      setTimeout(() => {
+        if (this.win2 && !this.win2.isDestroyed()) {
+          // 检查鼠标是否在窗口内
+          const mousePos = screen.getCursorScreenPoint();
+          const bounds = this.win2.getBounds();
+          const isMouseInWindow =
+            mousePos.x >= bounds.x &&
+            mousePos.x <= bounds.x + bounds.width &&
+            mousePos.y >= bounds.y &&
+            mousePos.y <= bounds.y + bounds.height;
+
+          // 如果鼠标不在窗口内且窗口未被固定，则关闭窗口
+          if (!isMouseInWindow && !isPinned && this.win2.isVisible()) {
+            console.log("3秒后自动关闭窗口");
+            this.win2.hide();
+          }
+        }
+      }, 3000);
+    }
+  }
+
+  // 创建窗口但不显示，等待前端决定是否显示
+  createSecondaryWindowWithoutShow() {
+    if (this.win2 && !this.win2.isDestroyed()) return this.win2;
+
+    console.log("创建辅助窗口但不显示");
+    const globelMousePoint = screen.getCursorScreenPoint();
+    this.win2 = new BrowserWindow({
+      title: "Dashboard",
+      frame: false,
+      transparent: true,
+      backgroundColor: "white",
+      hasShadow: true,
+      autoHideMenuBar: true,
+      width: 200, // 初始尺寸小一些
+      height: 200,
+      show: false, // 不显示窗口
+      alwaysOnTop: true,
+      webPreferences: {
+        preload: this.preload,
+        webSecurity: false,
+        nodeIntegration: true,
+      },
+    });
+
+    // 设置窗口位置
+    this.win2.setPosition(globelMousePoint.x + 10, globelMousePoint.y + 10);
+
+    // 加载页面
+    if (this.viteDevServerUrl) {
+      this.win2.loadURL(this.viteDevServerUrl + "dashboard");
+    } else {
+      if (this.indexHtml.startsWith("file://")) {
+        const url = this.indexHtml.replace(/index\.html$/, "") + "#/dashboard";
+        this.win2.loadURL(url);
+      } else {
+        this.win2.loadFile(this.indexHtml, { hash: "dashboard" });
+      }
+    }
+
+    // 设置窗口关闭事件
+    this.win2.on("closed", () => {
+      this.win2 = undefined;
+    });
+
+    // 设置窗口其他事件和监听器
+    // 我们需要对窗口设置事件处理，这里简化处理，直接使用已有逻辑
+    // 而不是调用不存在的setupSecondaryWindowEvents方法
+    // 设置自动关闭定时器和其他事件
+    let mouseLeaveTimeout: NodeJS.Timeout | null = null;
+    let isPinned = false;
+    let isMouseInWindow = false;
+    let isMoving = false;
+
+    // 将isPinned作为窗口的属性保存
+    (this.win2 as any).isPinned = isPinned;
+
+    // 设置自动关闭定时器
+    const setAutoCloseTimer = () => {
+      if (mouseLeaveTimeout) {
+        clearTimeout(mouseLeaveTimeout);
+        mouseLeaveTimeout = null;
+      }
+
+      // 如果窗口未被固定且鼠标不在窗口内，且窗口不在移动中，设置定时器
+      if (!isPinned && !isMouseInWindow && !isMoving) {
+        console.log("设置自动关闭计时器");
+        mouseLeaveTimeout = setTimeout(() => {
+          if (this.win2 && !this.win2.isDestroyed()) {
+            this.win2.hide();
+            console.log("自动关闭win2窗口");
+          }
+        }, 3000);
+      }
+    };
+
+    // 窗口显示时设置自动关闭定时器
+    this.win2.on("show", () => {
+      // 如果窗口未被固定且鼠标不在窗口内，设置自动关闭定时器
+      if (!isPinned && !isMouseInWindow) {
+        setAutoCloseTimer();
+      }
+    });
+
+    return this.win2;
+  }
+
+  // 获取鼠标位置的辅助方法
+  getCursorScreenPoint() {
+    return screen.getCursorScreenPoint();
   }
 
   createChildWindow(hash: string) {

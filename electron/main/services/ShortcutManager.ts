@@ -72,18 +72,26 @@ export class ShortcutManager {
       // 窗口可见性状态
       const isVisible = win2.isVisible();
 
+      // 先发送剪贴板更新事件，让前端组件决定是否显示窗口
       win2.webContents.send("clipboard-update", {
         event: "clipboard-update",
         text: text,
         isVisible: isVisible,
       });
 
-      // 如果窗口不可见，则显示窗口
+      // 窗口初始化，但不立即显示
+      // 前端组件会根据是否找到关键词来决定是否显示窗口
       if (!win2.isVisible()) {
-        this.windowManager.showSecondaryWindowAtCursor();
+        // 移动窗口到鼠标位置但不显示
+        const globelMousePoint = this.windowManager.getCursorScreenPoint();
+        win2.setPosition(globelMousePoint.x + 10, globelMousePoint.y + 10);
+        win2.setAlwaysOnTop(true);
+        win2.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        // 不自动显示窗口，等待前端判断是否有关键词后再显示
       }
     } else {
-      this.windowManager.showSecondaryWindowAtCursor();
+      // 如果窗口不存在，则创建窗口但不显示
+      this.windowManager.createSecondaryWindowWithoutShow();
     }
   }
 

@@ -42,7 +42,7 @@ interface HighlightProps {
 // 自定义样式组件
 const ControlBar = styled("div")(
   ({ theme, isPinned }: { theme?: any; isPinned: boolean }) => ({
-    width: "100%",
+    // width: "100%",
     backgroundColor: "#1f2937", // 深灰色背景
     padding: "0.25rem 1rem",
     borderRadius: "0.375rem 0.375rem 0 0", // 只有顶部圆角
@@ -326,6 +326,34 @@ const TextHighlighter = ({
     }, 200); // 增加延迟确保DOM完全渲染
   }, [foundKeywords, showPanel, isVisibleContent]);
 
+  // 在展示的关键词里，取前5个，如果有关键词就显示
+  const displayKeywords = useMemo(() => {
+    // 确保返回找到的关键词数组，而不是空数组
+    return foundKeywords.length > 0 ? foundKeywords : [];
+  }, [foundKeywords]);
+
+  // 根据关键词数量控制窗口显示
+  useEffect(() => {
+    // 如果没有关键词，就关闭窗口
+    if (displayKeywords.length === 0) {
+      window.ipcRenderer?.send("close-window");
+    } else if (isVisibleContent) {
+      // 有关键词且窗口可见，根据当前状态调整窗口大小
+      if (showPanel) {
+        window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
+      } else {
+        // 计算适合关键词列表的窗口大小
+        const itemHeight = 40;
+        const numItems = Math.min(displayKeywords.length, 5);
+        const estimatedHeight = numItems * itemHeight + 30;
+        window.ipcRenderer?.send("resize-window", {
+          width: 240,
+          height: Math.max(estimatedHeight, 100),
+        });
+      }
+    }
+  }, [displayKeywords, isVisibleContent, showPanel]);
+
   // 监听ESC键盘事件关闭窗口
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -341,11 +369,6 @@ const TextHighlighter = ({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-
-  // 在展示的关键词里，取前5个，如果有关键词就显示
-  const displayKeywords = useMemo(() => {
-    return foundKeywords.length > 0 ? foundKeywords : foundKeywords;
-  }, [foundKeywords]);
 
   return (
     <div className="highlighter-container h-full" style={{ display: "flex" }}>
@@ -542,11 +565,30 @@ const App = () => {
       console.log("窗口可见性(从事件中):", isVisible);
       setIsWindowVisible(!!isVisible);
 
-      getWorksList();
+      // 获取词库列表
+      await getWorksList();
 
       // 确保传递正确的参数给 handleClipboardUpdate
       if (text) {
         handleClipboardUpdate(event, text);
+
+        // 短暂延迟以确保关键词处理完成
+        setTimeout(() => {
+          // 检查是否找到关键词并显示窗口
+          const foundKeywordsElement = document.querySelector(
+            ".highlighter-container",
+          );
+          const keywordItems =
+            foundKeywordsElement?.querySelectorAll(".KeywordItem");
+
+          if (keywordItems && keywordItems.length > 0) {
+            console.log("找到关键词，显示窗口");
+            // 显示窗口
+            window.ipcRenderer?.send("show-window");
+          } else {
+            console.log("未找到关键词，不显示窗口");
+          }
+        }, 500);
       }
 
       if (!isVisible) {
