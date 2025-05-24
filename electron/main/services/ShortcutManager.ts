@@ -10,6 +10,15 @@ export class ShortcutManager {
     this.windowManager = windowManager;
   }
 
+  // 检查文本是否有效内容（不仅仅是空白字符或换行符）
+  private hasValidContent(text: string): boolean {
+    if (!text) return false;
+
+    // 去除所有空白字符和换行符后，检查是否还有内容
+    const contentWithoutWhitespace = text.replace(/[\s\r\n\t]/g, "");
+    return contentWithoutWhitespace.length > 0;
+  }
+
   setupGlobalShortcuts() {
     const isResgist = globalShortcut.isRegistered("CommandOrControl+Shift+F1");
     const modifier = Key.LeftControl;
@@ -21,6 +30,14 @@ export class ShortcutManager {
         if (win2 && !win2.isDestroyed()) {
           const clipboardContent = await this.getSelectedContent(clipboard);
           console.log("clipboardContent", clipboardContent);
+
+          // 检查剪贴板内容是否为空或只有空白字符
+          if (!this.hasValidContent(clipboardContent.text)) {
+            console.log(
+              "剪贴板内容无效（可能只有空白字符或换行符），不显示窗口",
+            );
+            return;
+          }
 
           // 窗口可见性状态
           const isVisible = win2.isVisible();
@@ -36,6 +53,12 @@ export class ShortcutManager {
             this.windowManager.showSecondaryWindowAtCursor();
           }
         } else {
+          // 创建新窗口前检查剪贴板内容
+          const clipboardContent = await this.getSelectedContent(clipboard);
+          if (!this.hasValidContent(clipboardContent.text)) {
+            console.log("剪贴板内容无效，不创建新窗口");
+            return;
+          }
           this.windowManager.showSecondaryWindowAtCursor();
         }
       });
@@ -54,10 +77,10 @@ export class ShortcutManager {
     this.clipboardCheckInterval = setInterval(() => {
       const currentContent = clipboard.readText() || "";
 
-      // 如果内容改变且不为空，则触发窗口显示
+      // 如果内容改变且含有有效内容，则触发窗口显示
       if (
         currentContent !== this.lastClipboardContent &&
-        currentContent.trim() !== ""
+        this.hasValidContent(currentContent)
       ) {
         this.lastClipboardContent = currentContent;
         this.handleClipboardChange(currentContent);
@@ -67,7 +90,14 @@ export class ShortcutManager {
 
   // 处理剪贴板内容变化
   private async handleClipboardChange(text: string) {
+    // 再次确认文本有效
+    if (!this.hasValidContent(text)) {
+      console.log("剪贴板变化内容无效，不触发窗口显示", text);
+      return;
+    }
+
     const win2 = this.windowManager.getSecondaryWindow();
+    console.log("handleClipboardChange", text);
     if (win2 && !win2.isDestroyed()) {
       // 窗口可见性状态
       const isVisible = win2.isVisible();

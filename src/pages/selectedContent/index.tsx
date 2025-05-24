@@ -42,7 +42,7 @@ interface HighlightProps {
 // 自定义样式组件
 const ControlBar = styled("div")(
   ({ theme, isPinned }: { theme?: any; isPinned: boolean }) => ({
-    width: "100%",
+    // width: "100%",
     backgroundColor: "#1f2937", // 深灰色背景
     padding: "0.25rem 1rem",
     borderRadius: "0.375rem 0.375rem 0 0", // 只有顶部圆角
