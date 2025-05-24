@@ -248,13 +248,15 @@ function setupIpcHandlers(
   // 添加处理关闭窗口的IPC处理程序
   ipcMain.on("close-window", (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-
     if (win && !win.isDestroyed()) {
       win.close();
-      win.webContents.send("window-visibility-change", {
-        isVisible: false,
-      });
     }
+  });
+
+  // 添加处理将窗口移动到鼠标位置的IPC处理程序
+  ipcMain.on("move-window-to-cursor", () => {
+    console.log("收到移动窗口到鼠标位置的请求");
+    windowManager.moveSecondaryWindowToCursor();
   });
 
   // 添加处理鼠标进入窗口的IPC处理程序

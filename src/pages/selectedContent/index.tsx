@@ -278,53 +278,12 @@ const TextHighlighter = ({
   useEffect(() => {
     console.log("检测到关键词变化，数量:", foundKeywords.length);
 
-    // 检查窗口是否可见，不可见则不调整大小
-    if (!isVisibleContent) {
-      console.log("窗口不可见，跳过尺寸调整");
-      return;
+    // 当找到关键词时，通知主进程将窗口移动到鼠标位置
+    if (foundKeywords.length > 0) {
+      console.log("关键词已计算完成且找到匹配项，通知主进程移动窗口到鼠标位置");
+      window.ipcRenderer?.send("move-window-to-cursor");
     }
-
-    // 如果没有找到关键词，设置小窗口大小
-    if (foundKeywords.length === 0) {
-      console.log("没有找到关键词，设置小窗口大小");
-      window.ipcRenderer?.send("resize-window", { width: 180, height: 100 });
-      return;
-    }
-
-    // 等待DOM渲染完成后获取关键词容器的尺寸
-    setTimeout(() => {
-      if (keywordsContainerRef.current) {
-        if (showPanel) {
-          // 显示详细面板时，设置完整窗口尺寸
-          console.log("显示详细面板，设置完整窗口尺寸");
-          window.ipcRenderer?.send("resize-window", {
-            width: 940,
-            height: 550,
-          });
-        } else {
-          // 只显示关键词列表时，根据关键词数量调整窗口大小
-          const { width, height } =
-            keywordsContainerRef.current.getBoundingClientRect();
-          console.log("关键词容器尺寸:", width, height);
-
-          // 根据关键词数量计算合适的高度（每个关键词约40px高）
-          const itemHeight = 40; // 每个关键词项高度估计值
-          const numItems = Math.min(foundKeywords.length, 5); // 最多显示5个
-          const estimatedHeight = numItems * itemHeight + 30; // 加上padding
-
-          console.log(
-            "调整窗口大小为:",
-            Math.ceil(width) + 40,
-            Math.max(estimatedHeight, 100),
-          );
-          window.ipcRenderer?.send("resize-window", {
-            width: Math.ceil(width) + 40, // 宽度加上一些额外空间
-            height: Math.max(estimatedHeight, 100), // 最小高度100px
-          });
-        }
-      }
-    }, 200); // 增加延迟确保DOM完全渲染
-  }, [foundKeywords, showPanel, isVisibleContent]);
+  }, [foundKeywords]);
 
   // 监听ESC键盘事件关闭窗口
   useEffect(() => {
@@ -346,6 +305,14 @@ const TextHighlighter = ({
   const displayKeywords = useMemo(() => {
     return foundKeywords.length > 0 ? foundKeywords : foundKeywords;
   }, [foundKeywords]);
+
+  // 使用 useEffect 在 displayKeywords 更新且长度大于 0 时通知主进程移动窗口
+  useEffect(() => {
+    if (displayKeywords.length > 0) {
+      console.log("关键词已计算完成，通知主进程移动窗口到鼠标位置");
+      window.ipcRenderer?.send("move-window-to-cursor");
+    }
+  }, [displayKeywords]);
 
   return (
     <div className="highlighter-container h-full" style={{ display: "flex" }}>

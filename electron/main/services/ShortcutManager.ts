@@ -50,7 +50,7 @@ export class ShortcutManager {
           });
 
           if (!win2.isVisible()) {
-            this.windowManager.showSecondaryWindowAtCursor();
+            this.windowManager.showSecondaryWindowAtCursor(true);
           }
         } else {
           // 创建新窗口前检查剪贴板内容
@@ -59,7 +59,7 @@ export class ShortcutManager {
             console.log("剪贴板内容无效，不创建新窗口");
             return;
           }
-          this.windowManager.showSecondaryWindowAtCursor();
+          this.windowManager.showSecondaryWindowAtCursor(true);
         }
       });
 
@@ -108,12 +108,12 @@ export class ShortcutManager {
         isVisible: isVisible,
       });
 
-      // 如果窗口不可见，则显示窗口
+      // 如果窗口不可见，则显示窗口（初始放在屏幕外）
       if (!win2.isVisible()) {
-        this.windowManager.showSecondaryWindowAtCursor();
+        this.windowManager.showSecondaryWindowAtCursor(true);
       }
     } else {
-      this.windowManager.showSecondaryWindowAtCursor();
+      this.windowManager.showSecondaryWindowAtCursor(true);
     }
   }
 

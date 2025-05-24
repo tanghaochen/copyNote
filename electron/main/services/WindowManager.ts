@@ -459,7 +459,7 @@ export class WindowManager {
     return this.win2;
   }
 
-  showSecondaryWindowAtCursor() {
+  showSecondaryWindowAtCursor(offscreen: boolean = false) {
     if (!this.win2 || this.win2.isDestroyed()) return;
 
     // 检查窗口是否已经显示
@@ -471,8 +471,16 @@ export class WindowManager {
       this.win2.setSize(200, 200);
     }
 
-    const globelMousePoint = screen.getCursorScreenPoint();
-    this.win2.setPosition(globelMousePoint.x + 10, globelMousePoint.y + 10);
+    if (offscreen) {
+      // 放置在屏幕外的位置（用户看不到的地方）
+      console.log("将窗口放置在屏幕外");
+      this.win2.setPosition(100000, 100000);
+    } else {
+      // 正常显示在鼠标位置
+      const globelMousePoint = screen.getCursorScreenPoint();
+      this.win2.setPosition(globelMousePoint.x + 10, globelMousePoint.y + 10);
+    }
+
     this.win2.setAlwaysOnTop(true);
     this.win2.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
@@ -480,6 +488,14 @@ export class WindowManager {
     this.win2.showInactive();
 
     // 窗口显示时将自动触发show事件，该事件已设置自动关闭定时器的逻辑
+  }
+
+  moveSecondaryWindowToCursor() {
+    if (!this.win2 || this.win2.isDestroyed() || !this.win2.isVisible()) return;
+
+    const globelMousePoint = screen.getCursorScreenPoint();
+    console.log("将窗口移动到鼠标位置:", globelMousePoint);
+    this.win2.setPosition(globelMousePoint.x + 10, globelMousePoint.y + 10);
   }
 
   createChildWindow(hash: string) {
