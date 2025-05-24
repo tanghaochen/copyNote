@@ -138,9 +138,11 @@ export class WindowManager {
 
       // 添加鼠标离开窗口的检测
       let mouseLeaveTimeout: NodeJS.Timeout | null = null;
+      let noMouseEnterTimeout: NodeJS.Timeout | null = null; // 新增：鼠标未进入自动关闭计时器
       let isPinned = false;
       let isMouseInWindow = false; // 新增：跟踪鼠标是否在窗口内
       let isMoving = false; // 新增：跟踪窗口是否正在移动
+      let windowShowTime: number = 0; // 新增：记录窗口显示时间
 
       // 将isPinned作为窗口的属性保存
       (this.win2 as any).isPinned = isPinned;
@@ -264,6 +266,10 @@ export class WindowManager {
               clearTimeout(mouseLeaveTimeout);
               mouseLeaveTimeout = null;
             }
+            if (noMouseEnterTimeout) {
+              clearTimeout(noMouseEnterTimeout);
+              noMouseEnterTimeout = null;
+            }
           } else {
             // 如果取消固定，立即设置新的定时器（只有当鼠标不在窗口内时）
             if (!isMouseInWindow) {
@@ -300,7 +306,14 @@ export class WindowManager {
           // 处理鼠标进入窗口的消息
           isMouseInWindow = true;
           console.log("鼠标进入窗口");
-          // 鼠标进入窗口时，如果不是固定状态，取消定时器
+
+          // 鼠标已进入窗口，取消3秒未进入的自动关闭计时器
+          if (noMouseEnterTimeout) {
+            clearTimeout(noMouseEnterTimeout);
+            noMouseEnterTimeout = null;
+          }
+
+          // 鼠标进入窗口时，如果不是固定状态，取消常规的自动关闭定时器
           if (!isPinned && mouseLeaveTimeout) {
             clearTimeout(mouseLeaveTimeout);
             mouseLeaveTimeout = null;
@@ -345,9 +358,31 @@ export class WindowManager {
         }
       });
 
-      // 窗口显示时设置自动关闭定时器
+      // 窗口显示时设置自动关闭定时器和记录显示时间
       this.win2.on("show", () => {
-        // 如果窗口未被固定且鼠标不在窗口内，设置自动关闭定时器
+        // 记录窗口显示时间
+        windowShowTime = Date.now();
+
+        // 设置3秒倒计时，如果鼠标没有进入窗口则自动关闭
+        if (noMouseEnterTimeout) {
+          clearTimeout(noMouseEnterTimeout);
+          noMouseEnterTimeout = null;
+        }
+
+        noMouseEnterTimeout = setTimeout(() => {
+          // 如果3秒后鼠标仍未进入窗口且窗口未被固定，则关闭窗口
+          if (
+            !isMouseInWindow &&
+            !isPinned &&
+            this.win2 &&
+            !this.win2.isDestroyed()
+          ) {
+            console.log("窗口显示3秒后鼠标未进入，自动关闭窗口");
+            this.win2.hide();
+          }
+        }, 3000);
+
+        // 原有的自动关闭逻辑（鼠标离开窗口后的自动关闭）
         if (!isPinned && !isMouseInWindow) {
           setAutoCloseTimer();
         }
@@ -446,6 +481,10 @@ export class WindowManager {
         this.win2 = undefined;
         if (mouseLeaveTimeout) {
           clearTimeout(mouseLeaveTimeout);
+        }
+        if (noMouseEnterTimeout) {
+          clearTimeout(noMouseEnterTimeout);
+          noMouseEnterTimeout = null;
         }
       });
     }, 1);
