@@ -5,8 +5,6 @@ import NoteOutlineTree from "./components/noteOutlineTagTree";
 import WordsBar from "@/components/wordsBar";
 import { IconButton, ListSubheader } from "@mui/material";
 import Button from "@mui/material/Button";
-import AddIcon from "@mui/icons-material/Add";
-import Stack from "@mui/material/Stack";
 import "@/assets/globalStyles.scss";
 import ComplextTree from "@/components/complexTree/index.tsx";
 import DocumentOutline from "@/components/documentOutline";
@@ -73,7 +71,7 @@ function App() {
       </div>
 
       {/* 更新通知组件 */}
-      <UpdateNotification />
+      {/* <UpdateNotification /> */}
     </div>
   );
 }

@@ -283,17 +283,21 @@ const TextHighlighter = ({
       console.log("关键词已计算完成且找到匹配项，通知主进程移动窗口到鼠标位置");
       window.ipcRenderer?.send("move-window-to-cursor");
     }
-    if (e.key === "Escape") {
-      console.log("检测到ESC键，关闭窗口");
-      // 直接发送关闭窗口消息，不使用节流
-      window.ipcRenderer?.send("close-window");
-    }
+
+    // 添加键盘事件处理函数
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        console.log("检测到ESC键，关闭窗口");
+        // 直接发送关闭窗口消息，不使用节流
+        window.ipcRenderer?.send("close-window");
+      }
+    };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [foundKeywords]);
 
   // 在展示的关键词里，取前5个，如果有关键词就显示
   const displayKeywords = useMemo(() => {
