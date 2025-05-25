@@ -283,17 +283,11 @@ const TextHighlighter = ({
       console.log("关键词已计算完成且找到匹配项，通知主进程移动窗口到鼠标位置");
       window.ipcRenderer?.send("move-window-to-cursor");
     }
-  }, [foundKeywords]);
-
-  // 监听ESC键盘事件关闭窗口
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        console.log("检测到ESC键，关闭窗口");
-        // 直接发送关闭窗口消息，不使用节流
-        window.ipcRenderer?.send("close-window");
-      }
-    };
+    if (e.key === "Escape") {
+      console.log("检测到ESC键，关闭窗口");
+      // 直接发送关闭窗口消息，不使用节流
+      window.ipcRenderer?.send("close-window");
+    }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {

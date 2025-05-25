@@ -466,15 +466,17 @@ export class WindowManager {
       // this.win2.webContents.openDevTools();
 
       if (this.viteDevServerUrl) {
-        this.win2.loadURL(this.viteDevServerUrl + "dashboard");
+        this.win2.loadURL(this.viteDevServerUrl + "#/dashboard");
       } else {
         // 对于dashboard路径，在非开发环境下也使用正确的方法加载
         if (this.indexHtml.startsWith("file://")) {
           const url =
-            this.indexHtml.replace(/index\.html$/, "") + "#/dashboard";
+            this.indexHtml.replace(/index\.html$/, "index.html") +
+            "#/dashboard";
+          console.log("加载dashboard窗口URL:", url);
           this.win2.loadURL(url);
         } else {
-          this.win2.loadFile(this.indexHtml, { hash: "dashboard" });
+          this.win2.loadFile(this.indexHtml, { hash: "/dashboard" });
         }
       }
       this.win2.on("closed", () => {
@@ -498,6 +500,30 @@ export class WindowManager {
     return this.win2;
   }
 
+  // 添加调试方法，检查secondary窗口状态
+  checkSecondaryWindow() {
+    if (!this.win2) {
+      console.log("secondary窗口未创建");
+      return false;
+    }
+
+    if (this.win2.isDestroyed()) {
+      console.log("secondary窗口已销毁");
+      return false;
+    }
+
+    console.log("secondary窗口状态: ", {
+      visible: this.win2.isVisible(),
+      focused: this.win2.isFocused(),
+      minimized: this.win2.isMinimized(),
+      maximized: this.win2.isMaximized(),
+      position: this.win2.getPosition(),
+      size: this.win2.getSize(),
+    });
+
+    return true;
+  }
+
   showSecondaryWindowAtCursor(offscreen: boolean = false) {
     if (!this.win2 || this.win2.isDestroyed()) return;
 
@@ -517,6 +543,7 @@ export class WindowManager {
     } else {
       // 正常显示在鼠标位置
       const globelMousePoint = screen.getCursorScreenPoint();
+      console.log("将窗口显示在鼠标位置:", globelMousePoint);
       this.win2.setPosition(globelMousePoint.x + 10, globelMousePoint.y + 10);
     }
 
@@ -525,6 +552,12 @@ export class WindowManager {
 
     // 显示窗口但不聚焦，避免打断用户的当前操作
     this.win2.showInactive();
+
+    // 确保窗口是可见的
+    if (!this.win2.isVisible()) {
+      console.log("强制显示窗口");
+      this.win2.show();
+    }
 
     // 窗口显示时将自动触发show事件，该事件已设置自动关闭定时器的逻辑
   }
@@ -552,7 +585,9 @@ export class WindowManager {
     } else {
       // 根据路径格式选择正确的加载方法
       if (this.indexHtml.startsWith("file://")) {
-        childWindow.loadURL(`${this.indexHtml}#${hash}`);
+        const url = `${this.indexHtml}#${hash}`;
+        console.log("加载子窗口URL:", url);
+        childWindow.loadURL(url);
       } else {
         childWindow.loadFile(this.indexHtml, { hash });
       }

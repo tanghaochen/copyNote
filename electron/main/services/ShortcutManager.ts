@@ -26,6 +26,11 @@ export class ShortcutManager {
     if (!isResgist) {
       // 快捷键打开窗口
       globalShortcut.register("CommandOrControl+Space", async () => {
+        console.log("触发快捷键 CommandOrControl+Space");
+
+        // 检查secondary窗口状态
+        this.windowManager.checkSecondaryWindow();
+
         const win2 = this.windowManager.getSecondaryWindow();
         if (win2 && !win2.isDestroyed()) {
           const clipboardContent = await this.getSelectedContent(clipboard);
@@ -41,6 +46,7 @@ export class ShortcutManager {
 
           // 窗口可见性状态
           const isVisible = win2.isVisible();
+          console.log("窗口当前可见状态:", isVisible);
 
           win2.webContents.send("clipboard-update", {
             event: "clipboard-update",
@@ -50,9 +56,13 @@ export class ShortcutManager {
           });
 
           if (!win2.isVisible()) {
+            console.log("窗口不可见，显示窗口");
             this.windowManager.showSecondaryWindowAtCursor(true);
+          } else {
+            console.log("窗口已可见，不需要再次显示");
           }
         } else {
+          console.log("窗口不存在或已销毁，创建新窗口");
           // 创建新窗口前检查剪贴板内容
           const clipboardContent = await this.getSelectedContent(clipboard);
           if (!this.hasValidContent(clipboardContent.text)) {
@@ -96,11 +106,19 @@ export class ShortcutManager {
       return;
     }
 
+    console.log(
+      "检测到剪贴板内容变化:",
+      text.substring(0, 20) + (text.length > 20 ? "..." : ""),
+    );
+
+    // 检查secondary窗口状态
+    this.windowManager.checkSecondaryWindow();
+
     const win2 = this.windowManager.getSecondaryWindow();
-    console.log("handleClipboardChange", text);
     if (win2 && !win2.isDestroyed()) {
       // 窗口可见性状态
       const isVisible = win2.isVisible();
+      console.log("窗口当前可见状态:", isVisible);
 
       win2.webContents.send("clipboard-update", {
         event: "clipboard-update",
@@ -110,9 +128,13 @@ export class ShortcutManager {
 
       // 如果窗口不可见，则显示窗口（初始放在屏幕外）
       if (!win2.isVisible()) {
+        console.log("窗口不可见，显示窗口");
         this.windowManager.showSecondaryWindowAtCursor(true);
+      } else {
+        console.log("窗口已可见，不需要再次显示");
       }
     } else {
+      console.log("窗口不存在或已销毁，创建新窗口");
       this.windowManager.showSecondaryWindowAtCursor(true);
     }
   }

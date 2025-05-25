@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
+import * as path from "path";
+import * as fs from "fs";
 
 // 安全地暴露选定的 IPC 功能给渲染进程
 contextBridge.exposeInMainWorld("electronAPI", {
@@ -26,6 +28,32 @@ contextBridge.exposeInMainWorld("electronAPI", {
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel);
   },
+});
+
+// 加载自定义脚本以修复路径问题
+window.addEventListener("DOMContentLoaded", () => {
+  try {
+    // 判断是否在生产环境
+    const isProduction = !window.location.href.includes("localhost");
+
+    if (isProduction) {
+      // 注入自定义脚本以修复哈希路由
+      const scriptTag = document.createElement("script");
+      scriptTag.src = "./electron-hash-router.js"; // 使用相对路径
+      scriptTag.type = "text/javascript";
+      document.head.appendChild(scriptTag);
+
+      // 注入已有的资源路径修复脚本
+      const viteScriptTag = document.createElement("script");
+      viteScriptTag.src = "./electron-vite.js"; // 使用相对路径
+      viteScriptTag.type = "text/javascript";
+      document.head.appendChild(viteScriptTag);
+
+      console.log("已注入自定义修复脚本");
+    }
+  } catch (error) {
+    console.error("注入自定义脚本失败:", error);
+  }
 });
 
 // --------- 以下是加载动画代码 ---------

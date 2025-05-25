@@ -55,8 +55,10 @@ function getHtmlPath() {
     return VITE_DEV_SERVER_URL;
   }
 
-  // 否则使用打包后的HTML文件路径
-  return `file://${indexHtml}`;
+  // 生产环境使用file协议路径，确保路径是正确的，适用于HashRouter
+  const url = `file://${indexHtml}`;
+  console.log("生产环境加载路径:", url);
+  return url;
 }
 
 // 为 app 扩展类型，添加 isQuitting 属性
@@ -64,12 +66,19 @@ declare global {
   namespace Electron {
     interface App {
       isQuitting?: boolean;
+      isDestroyed?: () => boolean;
     }
   }
 }
 
+// 初始化app.isQuitting属性
+// app.isQuitting = false; // 移除这行
+
 // 应用程序初始化
 async function initApp() {
+  // 安全地设置app.isQuitting属性
+  app.isQuitting = false;
+
   // 创建服务实例
   const resourceManager = new ResourceManager();
   const dbManager = new DatabaseManager();
@@ -256,7 +265,11 @@ function setupIpcHandlers(
   // 添加处理将窗口移动到鼠标位置的IPC处理程序
   ipcMain.on("move-window-to-cursor", () => {
     console.log("收到移动窗口到鼠标位置的请求");
-    windowManager.moveSecondaryWindowToCursor();
+    try {
+      windowManager.moveSecondaryWindowToCursor();
+    } catch (error) {
+      console.error("移动窗口到鼠标位置失败:", error);
+    }
   });
 
   // 添加处理鼠标进入窗口的IPC处理程序

@@ -24,6 +24,7 @@ export default defineConfig(({ command }) => {
         scss: {},
       },
     },
+    publicDir: "public",
     plugins: [
       react(),
       electron({
