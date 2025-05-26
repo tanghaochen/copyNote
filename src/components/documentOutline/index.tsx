@@ -389,12 +389,18 @@ export default function DocumentOutline({
   useEffect(() => {
     const tabIdChanged =
       activeTabsItem?.value !== lastActiveTabsItemRef.current?.value;
+    console.log(
+      "lastActiveTabsItemRef",
+      lastActiveTabsItemRef.current,
+      activeTabsItem,
+      tabIdChanged,
+    );
     if (tabIdChanged) {
       dataProviderRef.current.updateHeadings([]);
     }
 
     const editorChanged = editor !== lastEditorRef.current;
-
+    console.log("tabIdChanged", tabIdChanged, editorChanged);
     if (tabIdChanged || editorChanged) {
       // 更新引用
       lastActiveTabsItemRef.current = activeTabsItem;

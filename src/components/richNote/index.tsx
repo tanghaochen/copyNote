@@ -244,10 +244,10 @@ export default React.memo(
       [setActiveRichTextEditor],
     );
 
-    useEffect(() => {
-      console.log(tabItem);
-      //   editor.at.div.hosts
-    }, [tabItem]);
+    // useEffect(() => {
+    //   console.log(tabItem);
+    //   //   editor.at.div.hosts
+    // }, [tabItem]);
 
     return (
       <EditorProvider

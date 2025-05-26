@@ -115,6 +115,11 @@ const TextHighlighter = ({
   const [showPanel, setShowPanel] = useState<boolean>(false);
   // 关键词容器的引用，用于获取尺寸
   const keywordsContainerRef = useRef<HTMLDivElement>(null);
+  const [activeRichTextEditor, setActiveRichTextEditor] = useState(null);
+
+  useEffect(() => {
+    console.log("activeRichTextEditor>>>", activeRichTextEditor);
+  }, [activeRichTextEditor]);
 
   const sortedItems = useMemo(() => {
     console.log("sortedItems", items);
@@ -221,12 +226,17 @@ const TextHighlighter = ({
     setVisibleContent(true);
 
     // 使用直接方式调整窗口大小
-    window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
+    // if (!showPanel) {
+    //   window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
+    // }
 
     // 查找对应的ID
     const id = titleToIdMap.get(keyword);
     if (!id) return;
-
+    setTimeout(() => {
+      console.log("activeRichTextEditor", activeRichTextEditor);
+      activeRichTextEditor?.commands.focus();
+    }, 100);
     try {
       const noteItem = await noteContentDB.getContentByNoteId(Number(id));
       // 使用DOMPurify清理笔记内容
@@ -320,7 +330,6 @@ const TextHighlighter = ({
       window.ipcRenderer?.send("move-window-to-cursor");
     }
   }, [displayKeywords]);
-  const [activeRichTextEditor, setActiveRichTextEditor] = useState(null);
 
   return (
     <div className="highlighter-container h-full" style={{ display: "flex" }}>
@@ -393,7 +402,7 @@ const TextHighlighter = ({
             {/* 如果没有高亮，富文本不显示， 提供没有找到 */}
             {foundKeywords.length > 0 ? (
               <RichTextEditor
-                setActiveRichTextEditor={setActiveRichTextEditor} // 设置当前富文本编辑器
+                setCurrentEditor={setActiveRichTextEditor} // 设置当前富文本编辑器
                 tabItem={{ content: noteContent, value: activeNoteId }}
                 isShowHeading={false}
               />
@@ -409,7 +418,7 @@ const TextHighlighter = ({
       <div className="w-60 h-full bg-red-200">
         <DocumentOutline
           editor={activeRichTextEditor}
-          activeTabsItem={activeKeyword}
+          activeTabsItem={activeRichTextEditor}
           richTextEditorEleRef={null}
         />
       </div>
@@ -583,11 +592,9 @@ const App = () => {
     <div
       className="noteHightLightRoot"
       onMouseEnter={() => {
-        console.log("React组件检测到鼠标进入");
         window.ipcRenderer?.send("mouse-enter-window");
       }}
       onMouseLeave={(e) => {
-        console.log("React组件检测到鼠标离开");
         window.ipcRenderer?.send("mouse-leave-window");
 
         // 强制发送停止移动消息，确保isMoving重置为false
@@ -597,11 +604,9 @@ const App = () => {
       <ControlBar
         isPinned={isPinned}
         onMouseDown={() => {
-          console.log("开始拖拽窗口");
           window.ipcRenderer?.send("window-drag-start");
         }}
         onMouseUp={() => {
-          console.log("结束拖拽窗口");
           window.ipcRenderer?.send("window-drag-end");
         }}
       >
