@@ -11,21 +11,38 @@ import "react-complex-tree/lib/style-modern.css";
 import "./styles.scss";
 import { debounce } from "lodash";
 
+// 定义扩展的TreeItem类型
+interface ExtendedTreeItem extends TreeItem {
+  label?: string;
+  level?: number;
+  position?: number;
+  data: any;
+}
+
+// 定义标题接口
+interface Heading {
+  id: string;
+  level: number;
+  text: string;
+  position: number;
+}
+
 // 自定义数据提供者实现
 class DocumentOutlineDataProvider implements TreeDataProvider {
-  private data: Record<TreeItemIndex, TreeItem> = {
+  private data: Record<TreeItemIndex, ExtendedTreeItem> = {
     root: {
       index: "root",
       isFolder: true,
       children: [],
       label: "目录",
+      data: {},
     },
   };
 
   private treeChangeListeners: ((changedItemIds: TreeItemIndex[]) => void)[] =
     [];
 
-  constructor(headings = []) {
+  constructor(headings: Heading[] = []) {
     this.updateHeadings(headings);
   }
 
@@ -60,12 +77,12 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
 
   public async onRenameItem(item: TreeItem, name: string): Promise<void> {
     console.log("onRenameItem", this.data);
-    this.data[item.index].label = name;
+    (this.data[item.index] as ExtendedTreeItem).label = name;
     this.treeChangeListeners.forEach((listener) => listener([item.index]));
   }
 
   // 更新单个标题
-  public updateHeadingItem(heading) {
+  public updateHeadingItem(heading: Heading) {
     const id = heading.id;
 
     // 如果项目不存在，需要创建并添加到树结构中
@@ -77,22 +94,28 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
         position: heading.position,
         children: [],
         isFolder: false,
+        data: {},
       };
 
       // 找到合适的父节点
-      let parentId = "root";
+      let parentId: string = "root";
       for (let l = heading.level - 1; l > 0; l--) {
         // 查找最近的上级标题
         const possibleParents = Object.values(this.data).filter(
-          (item) => item.level === l && item.position < heading.position,
+          (item) =>
+            (item as ExtendedTreeItem).level === l &&
+            (item as ExtendedTreeItem).position! < heading.position,
         );
 
         if (possibleParents.length > 0) {
           // 找到位置最近的父节点
           const closestParent = possibleParents.reduce((prev, current) =>
-            current.position > prev.position ? current : prev,
+            (current as ExtendedTreeItem).position! >
+            (prev as ExtendedTreeItem).position!
+              ? current
+              : prev,
           );
-          parentId = closestParent.index;
+          parentId = closestParent.index as string;
           break;
         }
       }
@@ -101,17 +124,17 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
       if (!this.data[parentId].children) {
         this.data[parentId].children = [];
       }
-      this.data[parentId].children.push(id);
+      this.data[parentId].children!.push(id);
 
       // 通知父节点变化
       this.treeChangeListeners.forEach((listener) => listener([parentId]));
     } else {
       // 如果项目已存在，只更新标签
-      const oldLabel = this.data[id].label;
+      const oldLabel = (this.data[id] as ExtendedTreeItem).label;
       const newLabel = heading.text || "未命名标题";
 
       if (oldLabel !== newLabel) {
-        this.data[id].label = newLabel;
+        (this.data[id] as ExtendedTreeItem).label = newLabel;
         // 通知项目变化
         this.treeChangeListeners.forEach((listener) => listener([id]));
       }
@@ -119,7 +142,7 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
   }
 
   // 更新标题数据
-  public updateHeadings(headings) {
+  public updateHeadings(headings: Heading[]) {
     if (headings.length === 0) {
       // 如果没有标题，重置为只有根节点的树
       this.data = {
@@ -128,6 +151,7 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
           isFolder: true,
           children: [],
           label: "目录",
+          data: {},
         },
       };
       this.treeChangeListeners.forEach((listener) => listener(["root"]));
@@ -167,7 +191,7 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
     }
 
     // 构建树结构
-    let lastNodeByLevel = {};
+    const lastNodeByLevel: Record<number, string> = {};
     lastNodeByLevel[0] = "root";
 
     // 首先确保根节点存在
@@ -177,6 +201,7 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
         isFolder: true,
         children: [],
         label: "目录",
+        data: {},
       };
     }
 
@@ -202,12 +227,14 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
           position: heading.position,
           children: [],
           isFolder: false,
+          data: {},
         };
       } else {
         // 更新现有节点
-        this.data[id].label = heading.text || "未命名标题";
-        this.data[id].level = level;
-        this.data[id].position = heading.position;
+        (this.data[id] as ExtendedTreeItem).label =
+          heading.text || "未命名标题";
+        (this.data[id] as ExtendedTreeItem).level = level;
+        (this.data[id] as ExtendedTreeItem).position = heading.position;
       }
 
       // 找到合适的父节点
@@ -225,8 +252,8 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
       }
 
       // 避免重复添加
-      if (!this.data[parentId].children.includes(id)) {
-        this.data[parentId].children.push(id);
+      if (!this.data[parentId].children!.includes(id)) {
+        this.data[parentId].children!.push(id);
         this.data[parentId].isFolder = true;
       }
 
@@ -256,6 +283,7 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
         isFolder: true,
         children: [],
         label: "目录",
+        data: {},
       },
     };
     // this.data.root.children = [];
@@ -264,46 +292,56 @@ class DocumentOutlineDataProvider implements TreeDataProvider {
   }
 }
 
+interface DocumentOutlineProps {
+  editor: any;
+  activeTabsItem: any;
+  richTextEditorEleRef: any;
+}
+
 export default function DocumentOutline({
   editor,
   activeTabsItem,
   richTextEditorEleRef,
-}) {
-  const [headings, setHeadings] = useState([]);
-  const [expandedItems, setExpandedItems] = useState(["root"]);
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [activeHeading, setActiveHeading] = useState(null);
-  const lastActiveTabsItemRef = useRef(null);
-  const lastEditorRef = useRef(null);
-  const observerRef = useRef(null);
-  const treeRef = useRef(null);
+}: DocumentOutlineProps) {
+  const [headings, setHeadings] = useState<Heading[]>([]);
+  const [expandedItems, setExpandedItems] = useState<string[]>(["root"]);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [activeHeading, setActiveHeading] = useState<string | null>(null);
+  const lastActiveTabsItemRef = useRef<any>(null);
+  const lastEditorRef = useRef<any>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const treeRef = useRef<any>(null);
   const dataProviderRef = useRef(new DocumentOutlineDataProvider());
+
   // 提取标题的函数
   const updateHeadings = debounce(() => {
     if (!editor || editor.isDestroyed) return;
 
     try {
-      const headingsList = [];
+      const headingsList: Heading[] = [];
       const content = editor.getJSON();
 
       if (content && content.content) {
         // 查找文档中实际存在的标题元素
-        const headingElements = document
-          .querySelector(".react-tabs__tab-panel--selected")
-          .querySelectorAll(
-            ".ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror h4, .ProseMirror h5, .ProseMirror h6, .ProseMirror [role='heading']",
-          );
+        const targetContainer = document.querySelector(
+          ".react-tabs__tab-panel--selected",
+        );
+        if (!targetContainer) return;
+
+        const headingElements = targetContainer.querySelectorAll(
+          ".ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror h4, .ProseMirror h5, .ProseMirror h6, .ProseMirror [role='heading']",
+        );
 
         // 创建DOM元素到位置的映射
         const elementPositionMap = new Map();
 
-        content.content.forEach((node, index) => {
+        content.content.forEach((node: any, index: number) => {
           if (node.type === "heading" || node.type === "headingWithId") {
             const level = node.attrs ? node.attrs.level : 1;
             let text = "";
 
             if (node.content) {
-              node.content.forEach((textNode) => {
+              node.content.forEach((textNode: any) => {
                 if (textNode.text) {
                   text += textNode.text;
                 }
@@ -313,10 +351,10 @@ export default function DocumentOutline({
             elementPositionMap.set(text.trim(), index);
           }
         });
-        headingsList.length = 0;
+
         // 从DOM中获取实际ID
         headingElements.forEach((element, idx) => {
-          const text = element.textContent.trim();
+          const text = element.textContent?.trim() || "";
           const level = parseInt(element.tagName.substring(1)) || 1;
           const id =
             element.id ||
@@ -340,7 +378,7 @@ export default function DocumentOutline({
       // 更新后重新设置 IntersectionObserver
       setTimeout(() => {
         setupIntersectionObserver();
-        treeRef.current?.expandAll("root");
+        treeRef.current?.expandAll?.("root");
       }, 50);
     } catch (error) {
       console.error("更新标题时出错:", error);
@@ -447,9 +485,9 @@ export default function DocumentOutline({
   };
 
   // 确保高亮的项目在展开状态
-  const ensureItemExpanded = (itemId) => {
+  const ensureItemExpanded = (itemId: string) => {
     // 找到该标题的所有父节点
-    const parentIds = [];
+    const parentIds: string[] = [];
     let currentNode = itemId;
 
     // 遍历树结构找到所有父节点
@@ -478,15 +516,35 @@ export default function DocumentOutline({
   };
 
   // 点击目录项滚动到对应位置
-  const handleSelectItems = (items) => {
-    setSelectedItems(items);
+  const handleSelectItems = (items: TreeItemIndex[]) => {
+    const stringItems = items.map((item) => item.toString());
+    setSelectedItems(stringItems);
 
     // 如果选择了非根节点，滚动到对应位置
     if (items.length === 1 && items[0] !== "root") {
-      const element = document.getElementById(items[0]);
+      const element = document.getElementById(items[0].toString());
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "start" });
       }
+    }
+  };
+
+  // 处理目录项点击（避免路由冲突）
+  const handleItemClick = (item: ExtendedTreeItem, e: React.MouseEvent) => {
+    e.preventDefault(); // 阻止默认锚点跳转行为
+
+    if (item.index === "root") {
+      return;
+    }
+
+    // 更新选中状态
+    setSelectedItems([item.index as string]);
+    setActiveHeading(item.index as string);
+
+    // 滚动到对应元素
+    const element = document.getElementById(item.index as string);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -497,13 +555,16 @@ export default function DocumentOutline({
       </div>
       {headings.length > 0 ? (
         <UncontrolledTreeEnvironment
-          defaultInteractionMode={"click-arrow-to-expand"}
+          defaultInteractionMode={{
+            mode: "click-arrow-to-expand",
+            createInteractiveElementProps: () => ({}),
+          }}
           dataProvider={dataProviderRef.current}
           canDragAndDrop={false}
           canDropOnFolder={false}
           canReorderItems={false}
           disableMultiselect
-          getItemTitle={(item) => item.label}
+          getItemTitle={(item) => (item as ExtendedTreeItem).label || ""}
           viewState={{
             ["outline"]: {
               expandedItems,
@@ -511,36 +572,28 @@ export default function DocumentOutline({
             },
           }}
           onExpandItem={(item) =>
-            setExpandedItems([...expandedItems, item.index])
+            setExpandedItems([...expandedItems, item.index.toString()])
           }
           onCollapseItem={(item) =>
             setExpandedItems(
               expandedItems.filter(
-                (expandedItemIndex) => expandedItemIndex !== item.index,
+                (expandedItemIndex) =>
+                  expandedItemIndex !== item.index.toString(),
               ),
             )
           }
           onSelectItems={handleSelectItems}
           renderItemTitle={({ item }) => (
-            <a
-              href={item.index !== "root" ? `#${item.index}` : "#"}
-              className={`outline-item level-${item.level || 0} ${
-                selectedItems.includes(item.index) ? "active" : ""
+            <div
+              className={`outline-item level-${
+                (item as ExtendedTreeItem).level || 0
+              } ${
+                selectedItems.includes(item.index as string) ? "active" : ""
               }`}
-              onClick={(e) => {
-                console.log("item", item);
-                // 不阻止默认行为，让浏览器处理锚点跳转
-                if (item.index === "root") {
-                  e.preventDefault(); // 只有根节点阻止默认行为
-                } else {
-                  // 更新选中状态
-                  setSelectedItems([item.index]);
-                  setActiveHeading(item.index);
-                }
-              }}
+              onClick={(e) => handleItemClick(item as ExtendedTreeItem, e)}
               style={{
                 textDecoration: "none",
-                fontWeight: selectedItems.includes(item.index)
+                fontWeight: selectedItems.includes(item.index as string)
                   ? "bold"
                   : "normal",
                 display: "block",
@@ -549,8 +602,8 @@ export default function DocumentOutline({
                 borderRadius: "4px",
               }}
             >
-              {item.label}
-            </a>
+              {(item as ExtendedTreeItem).label}
+            </div>
           )}
         >
           <Tree

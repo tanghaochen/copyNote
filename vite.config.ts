@@ -21,7 +21,23 @@ export default defineConfig(({ command }) => {
     },
     css: {
       preprocessorOptions: {
-        scss: {},
+        scss: {
+          // 减少deprecation警告
+          quietDeps: true,
+          logger: {
+            warn: function (message, options) {
+              // 过滤掉某些特定的警告
+              if (
+                message.includes("legacy-js-api") ||
+                message.includes("import") ||
+                message.includes("global-builtin")
+              ) {
+                return;
+              }
+              console.warn(message);
+            },
+          },
+        },
       },
     },
     publicDir: "public",

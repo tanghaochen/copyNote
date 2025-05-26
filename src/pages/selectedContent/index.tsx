@@ -410,6 +410,7 @@ const TextHighlighter = ({
         <DocumentOutline
           editor={activeRichTextEditor}
           activeTabsItem={activeKeyword}
+          richTextEditorEleRef={null}
         />
       </div>
     </div>
