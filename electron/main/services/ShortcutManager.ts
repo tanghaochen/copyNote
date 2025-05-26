@@ -120,6 +120,7 @@ export class ShortcutManager {
       const isVisible = win2.isVisible();
       console.log("窗口当前可见状态:", isVisible);
 
+      // 先发送剪贴板更新事件，让前端组件决定是否显示窗口
       win2.webContents.send("clipboard-update", {
         event: "clipboard-update",
         text: text,

@@ -291,6 +291,16 @@ function setupIpcHandlers(
       console.log("主进程收到鼠标离开窗口事件");
     }
   });
+
+  // 添加处理显示窗口的IPC处理程序
+  ipcMain.on("show-window", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      console.log("主进程收到显示窗口事件");
+      // 显示窗口但不聚焦
+      win.showInactive();
+    }
+  });
 }
 
 // 设置应用程序事件
