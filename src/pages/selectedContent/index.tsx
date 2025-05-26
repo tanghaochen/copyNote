@@ -16,6 +16,8 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import RemoveIcon from "@mui/icons-material/Remove";
 import CropSquareIcon from "@mui/icons-material/CropSquare";
 import FilterNoneIcon from "@mui/icons-material/FilterNone";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import Button from "@mui/material/Button";
 import { styled } from "@mui/system";
 import DOMPurify from "dompurify";
@@ -37,6 +39,9 @@ interface HighlightProps {
   items?: Array<{ id: number; title: string }>;
   isVisibleContent?: boolean;
   setVisibleContent?: (visible: boolean) => void;
+  showContentPanel?: boolean;
+  showContent?: boolean;
+  onToggleContent?: () => void;
 }
 
 // 自定义样式组件
@@ -90,8 +95,11 @@ const KeywordItem = styled("div")(({ isActive }: { isActive: boolean }) => ({
 const TextHighlighter = ({
   textContent,
   items = [],
-  isVisibleContent = true,
+  isVisibleContent = false,
   setVisibleContent = () => {},
+  showContentPanel = true,
+  showContent = false,
+  onToggleContent = () => {},
 }: HighlightProps) => {
   const [highlightedText, setHighlightedText] = useState(textContent);
   const contentPreviewRef = useRef<HTMLDivElement>(null);
@@ -332,8 +340,8 @@ const TextHighlighter = ({
       </KeywordsContainer>
 
       {/* 点击关键词list显示panel， */}
-      {isVisibleContent && (
-        <PanelGroup direction="horizontal" ref={ref}>
+      <PanelGroup direction="horizontal" ref={ref}>
+        {isVisibleContent && (
           <Panel>
             <div className="content-preview content-preview-target">
               <div className="font-bold">获取内容</div>
@@ -344,29 +352,57 @@ const TextHighlighter = ({
               ></div>
             </div>
           </Panel>
-          <PanelResizeHandle className="w-1 bg-stone-200" />
-          <Panel>
-            <div className="content-preview content-preview-note">
-              <div className="font-bold ">
+        )}
+
+        {isVisibleContent && <PanelResizeHandle className="w-1 bg-stone-200" />}
+
+        <Panel>
+          <div className="content-preview content-preview-note">
+            <div className="font-bold ">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                }}
+              >
                 <div>笔记内容</div>
-              </div>
-              {/* <div dangerouslySetInnerHTML={{ __html: noteContent }}></div> */}
-              {/* 如果没有高亮，富文本不显示， 提供没有找到 */}
-              {foundKeywords.length > 0 ? (
-                <RichTextEditor
-                  tabItem={{ content: noteContent, value: activeNoteId }}
-                  isShowHeading={false}
-                />
-              ) : (
-                // 没有找到
-                <div className="w-full h-full flex items-center justify-center">
-                  <div>没有找到相关内容</div>
+                <div>
+                  <IconButton
+                    size="small"
+                    onClick={onToggleContent}
+                    sx={{
+                      color: "#666",
+                      padding: "2px",
+                    }}
+                    title={showContent ? "隐藏获取内容" : "显示获取内容"}
+                  >
+                    {showContent ? (
+                      <VisibilityIcon fontSize="small" />
+                    ) : (
+                      <VisibilityOffIcon fontSize="small" />
+                    )}
+                  </IconButton>
                 </div>
-              )}
+              </div>
             </div>
-          </Panel>
-        </PanelGroup>
-      )}
+            {/* <div dangerouslySetInnerHTML={{ __html: noteContent }}></div> */}
+            {/* 如果没有高亮，富文本不显示， 提供没有找到 */}
+            {foundKeywords.length > 0 ? (
+              <RichTextEditor
+                tabItem={{ content: noteContent, value: activeNoteId }}
+                isShowHeading={false}
+              />
+            ) : (
+              // 没有找到
+              <div className="w-full h-full flex items-center justify-center">
+                <div>没有找到相关内容</div>
+              </div>
+            )}
+          </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 };
@@ -376,6 +412,7 @@ const App = () => {
   const [isPinned, setIsPinned] = useState(false);
   const [isClosed, setIsClosed] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [showContent, setShowContent] = useState(false); // 控制是否显示获取内容，默认不显示
   const items = [
     { id: 1, title: "Java" },
     { id: 2, title: "Python" },
@@ -408,6 +445,12 @@ const App = () => {
   const handleMaximize = () => {
     window.ipcRenderer?.send("maximize-window");
     setIsMaximized(!isMaximized);
+  };
+
+  // 切换获取内容显示状态
+  const handleToggleContent = () => {
+    setShowContent(!showContent);
+    console.log("切换获取内容显示状态:", !showContent);
   };
 
   // 监听窗口最大化/还原状态变化
@@ -491,7 +534,7 @@ const App = () => {
   };
 
   // 窗口可见性状态
-  const [isWindowVisible, setIsWindowVisible] = useState(true);
+  const [isWindowVisible, setIsWindowVisible] = useState(false);
 
   useEffect(() => {
     getWorksList();
@@ -623,8 +666,11 @@ const App = () => {
       <TextHighlighter
         textContent={customClipBoardContent}
         items={highlightedKeywords}
-        isVisibleContent={isWindowVisible}
+        isVisibleContent={isWindowVisible && showContent}
         setVisibleContent={setIsWindowVisible}
+        showContentPanel={showContent}
+        showContent={showContent}
+        onToggleContent={handleToggleContent}
       />
       {/* <RichTextEditor /> */}
     </div>
