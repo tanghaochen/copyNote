@@ -33,6 +33,7 @@ import RichTextEditor from "@/components/richNote";
 import "@/components/richNote/styles/index.scss";
 import { tagsdb } from "@/database/tagsdb";
 import { useVisibleControl } from "./lib";
+import DocumentOutline from "@/components/documentOutline";
 
 interface HighlightProps {
   textContent: string;
@@ -319,6 +320,7 @@ const TextHighlighter = ({
       window.ipcRenderer?.send("move-window-to-cursor");
     }
   }, [displayKeywords]);
+  const [activeRichTextEditor, setActiveRichTextEditor] = useState(null);
 
   return (
     <div className="highlighter-container h-full" style={{ display: "flex" }}>
@@ -357,7 +359,7 @@ const TextHighlighter = ({
         {isVisibleContent && <PanelResizeHandle className="w-1 bg-stone-200" />}
 
         <Panel>
-          <div className="content-preview content-preview-note">
+          <div className="content-preview content-preview-note react-tabs__tab-panel--selected">
             <div className="font-bold ">
               <div
                 style={{
@@ -391,6 +393,7 @@ const TextHighlighter = ({
             {/* 如果没有高亮，富文本不显示， 提供没有找到 */}
             {foundKeywords.length > 0 ? (
               <RichTextEditor
+                setActiveRichTextEditor={setActiveRichTextEditor} // 设置当前富文本编辑器
                 tabItem={{ content: noteContent, value: activeNoteId }}
                 isShowHeading={false}
               />
@@ -403,6 +406,12 @@ const TextHighlighter = ({
           </div>
         </Panel>
       </PanelGroup>
+      <div className="w-60 h-full bg-red-200">
+        <DocumentOutline
+          editor={activeRichTextEditor}
+          activeTabsItem={activeKeyword}
+        />
+      </div>
     </div>
   );
 };
