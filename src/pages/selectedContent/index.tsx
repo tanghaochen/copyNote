@@ -19,6 +19,7 @@ import FilterNoneIcon from "@mui/icons-material/FilterNone";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import ListIcon from "@mui/icons-material/List";
+import TocOutlinedIcon from "@mui/icons-material/TocOutlined";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import Button from "@mui/material/Button";
 import { styled } from "@mui/system";
@@ -494,21 +495,18 @@ const TextHighlighter = ({
                 }}
               >
                 <div>笔记内容</div>
-                <div className="flex gap-1">
+                <div className="flex gap-4">
                   <IconButton
                     size="small"
                     onClick={onToggleContent}
                     sx={{
                       color: "#666",
                       padding: "2px",
+                      backgroundColor: showContent ? "#E7E9E8" : "transparent",
                     }}
                     title={showContent ? "隐藏获取内容" : "显示获取内容"}
                   >
-                    {showContent ? (
-                      <VisibilityIcon fontSize="small" />
-                    ) : (
-                      <VisibilityOffIcon fontSize="small" />
-                    )}
+                    <VisibilityIcon fontSize="small" />
                   </IconButton>
                   {/* 添加目录控制按钮 */}
                   <IconButton
@@ -517,11 +515,12 @@ const TextHighlighter = ({
                     sx={{
                       color: "#666",
                       padding: "2px",
+                      backgroundColor: showOutline ? "#E7E9E8" : "transparent",
                     }}
                     title={showOutline ? "隐藏目录" : "显示目录"}
                   >
                     {showOutline ? (
-                      <MenuBookIcon fontSize="small" />
+                      <TocOutlinedIcon fontSize="small" />
                     ) : (
                       <ListIcon fontSize="small" />
                     )}
