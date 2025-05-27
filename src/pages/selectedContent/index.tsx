@@ -88,12 +88,12 @@ const KeywordsContainer = styled("div")({
 const KeywordItem = styled("div")(({ isActive }: { isActive: boolean }) => ({
   padding: "0.25rem 0.5rem",
   cursor: "pointer",
-  backgroundColor: isActive ? "#e6f7ff" : "transparent",
+  backgroundColor: isActive ? "#EAEAEA" : "transparent",
   borderRadius: "4px",
   fontWeight: isActive ? "bold" : "normal",
   transition: "all 0.2s ease",
   "&:hover": {
-    backgroundColor: "#f0f7ff",
+    backgroundColor: "#EAEAEA",
   },
 }));
 
@@ -548,11 +548,8 @@ const TextHighlighter = ({
         {showOutline && (
           <>
             <PanelResizeHandle className="w-1 bg-stone-200" />
-            <Panel defaultSize={20} minSize={15} maxSize={40} order={3}>
+            <Panel defaultSize={40} minSize={15} maxSize={40} order={3}>
               <div className="h-full bg-white overflow-auto border-l border-gray-200">
-                <div className="p-2 font-bold border-b border-gray-200">
-                  目录
-                </div>
                 <DocumentOutline
                   editor={activeRichTextEditor}
                   activeTabsItem={activeRichTextEditor}
