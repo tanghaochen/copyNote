@@ -149,6 +149,7 @@ export default React.memo(
     const [richTextTitleInputValue, setRichTextTitleInputValue] = useState("");
     const lastActiveTabsItemRef = useRef(null);
     const [forceUpdateKey, setForceUpdateKey] = useState(Date.now());
+    const editorMountedRef = useRef(false);
 
     const editor = useEditor({
       extensions,
@@ -160,8 +161,23 @@ export default React.memo(
         // 图片处理逻辑
       }, 1000),
       onFocus: ({ editor }) => {
-        console.log("onFocus");
+        console.log("onFocus触发");
         setActiveRichTextEditor && setActiveRichTextEditor(editor);
+      },
+      onCreate: ({ editor }) => {
+        console.log("编辑器创建完成", editor);
+        editorMountedRef.current = true;
+
+        if (setActiveRichTextEditor) {
+          console.log("在onCreate中设置编辑器实例");
+          setActiveRichTextEditor(editor);
+        }
+
+        // 创建后自动聚焦
+        setTimeout(() => {
+          console.log("尝试在onCreate中聚焦编辑器");
+          editor.commands.focus();
+        }, 100);
       },
       editorProps: {
         attributes: {
@@ -174,60 +190,82 @@ export default React.memo(
 
     // 将编辑器实例传递给父组件
     useEffect(() => {
-      if (!setCurrentEditor || !setActiveRichTextEditor || !editor) return;
+      if (!editor) return;
 
-      setCurrentEditor(editor);
+      console.log("编辑器已初始化，设置到父组件");
+
+      if (setActiveRichTextEditor) {
+        setActiveRichTextEditor(editor);
+      }
+
+      if (setCurrentEditor) {
+        setCurrentEditor(editor);
+      }
 
       // 注册编辑器实例
       if (registerEditor && tabItem.value) {
         registerEditor(tabItem.value, editor);
       }
 
+      // 初始化完成后自动聚焦
+      setTimeout(() => {
+        console.log("编辑器初始化后尝试聚焦");
+        editor.commands.focus();
+      }, 200);
+
       return () => {
-        setCurrentEditor(null);
+        if (setCurrentEditor) {
+          setCurrentEditor(null);
+        }
       };
-    }, [editor, setCurrentEditor, registerEditor, tabItem.value]);
+    }, [
+      editor,
+      setCurrentEditor,
+      registerEditor,
+      tabItem.value,
+      setActiveRichTextEditor,
+    ]);
+
+    // 监听内容变化自动聚焦
+    useEffect(() => {
+      if (!editor || !editorMountedRef.current) return;
+
+      console.log("内容或标签页变化，尝试聚焦编辑器", tabItem);
+
+      // 延迟聚焦以确保内容已经渲染
+      const focusTimer = setTimeout(() => {
+        if (editor.commands) {
+          console.log("执行延迟聚焦");
+          editor.commands.focus();
+        }
+      }, 300);
+
+      return () => clearTimeout(focusTimer);
+    }, [editor, tabItem.content, tabItem.value]);
 
     // 监听标签页变化
     useEffect(() => {
-      if (!activeTabsItem) return;
+      if (!activeTabsItem || !editor) return;
       const tabIdChanged =
         activeTabsItem?.value !== lastActiveTabsItemRef.current?.value;
 
       if (tabIdChanged) {
-        // console.log("activeTabsItem ID 变化:", activeTabsItem?.value);
-        // console.log(
-        //   "上一个 activeTabsItem ID:",
-        //   lastActiveTabsItemRef.current?.value,
-        // );
-
         // 更新引用
         lastActiveTabsItemRef.current = activeTabsItem;
 
         // 设置当前编辑器为活动编辑器
         if (editor && activeTabsItem?.value === tabItem.value) {
-          // console.log("设置当前编辑器为活动编辑器:", tabItem.value);
+          console.log("标签页变化，设置当前编辑器为活动编辑器:", tabItem.value);
           setActiveRichTextEditor && setActiveRichTextEditor(editor);
 
           // 自动聚焦编辑器
           setTimeout(() => {
+            console.log("标签页变化后聚焦");
             editor.commands.focus();
           }, 100);
         }
       }
     }, [activeTabsItem, tabItem, editor, setActiveRichTextEditor]);
-
-    // 监听标签页变化，自动聚焦当前编辑器
-    useEffect(() => {
-      // 检查当前标签页是否是活动标签页
-      if (editor && activeTabsItem && tabItem.value === activeTabsItem.value) {
-        console.log("自动聚焦编辑器:", tabItem.value);
-        // 使用setTimeout确保DOM已经完全渲染
-        setTimeout(() => {
-          editor.commands.focus();
-        }, 100);
-      }
-    }, [editor, activeTabsItem, tabItem]);
 
     const handleTPBlur = useCallback(
       (e) => {
@@ -248,6 +286,17 @@ export default React.memo(
     //   console.log(tabItem);
     //   //   editor.at.div.hosts
     // }, [tabItem]);
+
+    useEffect(() => {
+      console.log("tabItem变化", tabItem, editor);
+
+      if (editor) {
+        setTimeout(() => {
+          console.log("tabItem变化后尝试聚焦");
+          editor.commands.focus();
+        }, 500);
+      }
+    }, [tabItem, editor]);
 
     return (
       <EditorProvider

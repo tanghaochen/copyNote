@@ -34,6 +34,7 @@ import "@/components/richNote/styles/index.scss";
 import { tagsdb } from "@/database/tagsdb";
 import { useVisibleControl } from "./lib";
 import DocumentOutline from "@/components/documentOutline";
+import { Editor } from "@tiptap/react"; // 添加Editor类型导入
 
 interface HighlightProps {
   textContent: string;
@@ -115,10 +116,38 @@ const TextHighlighter = ({
   const [showPanel, setShowPanel] = useState<boolean>(false);
   // 关键词容器的引用，用于获取尺寸
   const keywordsContainerRef = useRef<HTMLDivElement>(null);
-  const [activeRichTextEditor, setActiveRichTextEditor] = useState(null);
+  const [activeRichTextEditor, setActiveRichTextEditor] =
+    useState<Editor | null>(null);
+  const editorInstanceRef = useRef<Editor | null>(null); // 添加ref存储编辑器实例
+
+  // 更新editorInstanceRef的函数
+  const updateEditorRef = useCallback((editor: any) => {
+    console.log("更新编辑器引用", editor);
+    editorInstanceRef.current = editor;
+    setActiveRichTextEditor(editor);
+  }, []);
+
+  // 手动调用聚焦的函数
+  const focusEditor = useCallback(() => {
+    if (editorInstanceRef.current) {
+      console.log("通过引用聚焦编辑器", editorInstanceRef.current);
+      try {
+        // @ts-ignore - 忽略TypeScript错误
+        editorInstanceRef.current.commands.focus();
+      } catch (error) {
+        console.error("聚焦失败", error);
+      }
+    } else {
+      console.log("编辑器引用不存在，无法聚焦");
+    }
+  }, []);
 
   useEffect(() => {
     console.log("activeRichTextEditor>>>", activeRichTextEditor);
+    // 更新引用
+    if (activeRichTextEditor) {
+      editorInstanceRef.current = activeRichTextEditor;
+    }
   }, [activeRichTextEditor]);
 
   const sortedItems = useMemo(() => {
@@ -226,28 +255,104 @@ const TextHighlighter = ({
     setVisibleContent(true);
 
     // 使用直接方式调整窗口大小
-    // if (!showPanel) {
-    //   window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
-    // }
+    if (!showPanel) {
+      window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
+    }
 
     // 查找对应的ID
     const id = titleToIdMap.get(keyword);
     if (!id) return;
-    setTimeout(() => {
-      console.log("activeRichTextEditor", activeRichTextEditor);
-      activeRichTextEditor?.commands.focus();
-    }, 100);
+
     try {
       const noteItem = await noteContentDB.getContentByNoteId(Number(id));
       // 使用DOMPurify清理笔记内容
       setNoteContent(DOMPurify.sanitize(noteItem));
       setActiveNoteId(id);
+
+      // 内容设置后，使用多种方式尝试聚焦编辑器
+      setTimeout(() => {
+        focusEditor();
+
+        // 方法1：尝试直接触发点击事件
+        const editorDOM = document.querySelector(".ProseMirror");
+        if (editorDOM) {
+          console.log("找到编辑器DOM，模拟点击");
+          try {
+            // 模拟鼠标点击
+            editorDOM.dispatchEvent(
+              new MouseEvent("click", {
+                view: window,
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
+
+            // 触发焦点
+            editorDOM.dispatchEvent(
+              new Event("focus", {
+                bubbles: true,
+              }),
+            );
+          } catch (error) {
+            console.error("模拟点击失败", error);
+          }
+        } else {
+          console.log("未找到编辑器DOM元素");
+        }
+      }, 800);
     } catch (error) {
       console.error("获取笔记内容失败:", error);
       setNoteContent("<p>获取笔记内容失败</p>");
       setActiveNoteId(null);
     }
   };
+
+  // 添加DOM操作方式聚焦
+  const focusEditorWithDOM = useCallback(() => {
+    setTimeout(() => {
+      // 方法2：通过DOM直接设置焦点
+      const editorDOM = document.querySelector(".ProseMirror");
+      if (editorDOM) {
+        console.log("通过DOM直接聚焦");
+        try {
+          // @ts-ignore
+          editorDOM.focus();
+        } catch (error) {
+          console.error("DOM聚焦失败", error);
+        }
+      }
+    }, 300);
+  }, []);
+
+  // 监听noteContent变化以尝试聚焦编辑器
+  useEffect(() => {
+    if (noteContent) {
+      console.log("内容已更新，稍后尝试聚焦编辑器");
+      const timer = setTimeout(() => {
+        focusEditor();
+        focusEditorWithDOM();
+
+        // 方法3：模拟按键事件
+        const editorDOM = document.querySelector(".ProseMirror");
+        if (editorDOM) {
+          console.log("模拟按键事件");
+          try {
+            editorDOM.dispatchEvent(
+              new KeyboardEvent("keydown", {
+                key: "a",
+                code: "KeyA",
+                bubbles: true,
+              }),
+            );
+          } catch (error) {
+            console.error("模拟按键失败", error);
+          }
+        }
+      }, 1000); // 更长的延迟确保编辑器已加载
+
+      return () => clearTimeout(timer);
+    }
+  }, [noteContent, focusEditor, focusEditorWithDOM]);
 
   useEffect(() => {
     console.log(textContent, items);
@@ -402,7 +507,7 @@ const TextHighlighter = ({
             {/* 如果没有高亮，富文本不显示， 提供没有找到 */}
             {foundKeywords.length > 0 ? (
               <RichTextEditor
-                setCurrentEditor={setActiveRichTextEditor} // 设置当前富文本编辑器
+                setActiveRichTextEditor={updateEditorRef}
                 tabItem={{ content: noteContent, value: activeNoteId }}
                 isShowHeading={false}
               />
