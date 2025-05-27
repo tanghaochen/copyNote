@@ -18,6 +18,8 @@ import CropSquareIcon from "@mui/icons-material/CropSquare";
 import FilterNoneIcon from "@mui/icons-material/FilterNone";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import ListIcon from "@mui/icons-material/List";
+import MenuBookIcon from "@mui/icons-material/MenuBook";
 import Button from "@mui/material/Button";
 import { styled } from "@mui/system";
 import DOMPurify from "dompurify";
@@ -97,7 +99,7 @@ const KeywordItem = styled("div")(({ isActive }: { isActive: boolean }) => ({
 const TextHighlighter = ({
   textContent,
   items = [],
-  isVisibleContent = false,
+  isVisibleContent = true,
   setVisibleContent = () => {},
   showContentPanel = true,
   showContent = false,
@@ -119,6 +121,7 @@ const TextHighlighter = ({
   const [activeRichTextEditor, setActiveRichTextEditor] =
     useState<Editor | null>(null);
   const editorInstanceRef = useRef<Editor | null>(null); // 添加ref存储编辑器实例
+  const [showOutline, setShowOutline] = useState(true); // 控制是否显示目录，默认显示
 
   // 更新editorInstanceRef的函数
   const updateEditorRef = useCallback((editor: any) => {
@@ -436,6 +439,12 @@ const TextHighlighter = ({
     }
   }, [displayKeywords]);
 
+  // 切换目录显示状态
+  const handleToggleOutline = useCallback(() => {
+    setShowOutline(!showOutline);
+    console.log("切换目录显示状态:", !showOutline);
+  }, [showOutline]);
+
   return (
     <div className="highlighter-container h-full" style={{ display: "flex" }}>
       <KeywordsContainer ref={keywordsContainerRef}>
@@ -458,21 +467,22 @@ const TextHighlighter = ({
       {/* 点击关键词list显示panel， */}
       <PanelGroup direction="horizontal" ref={ref}>
         {isVisibleContent && (
-          <Panel>
-            <div className="content-preview content-preview-target">
-              <div className="font-bold">获取内容</div>
-              <div
-                ref={contentPreviewRef}
-                dangerouslySetInnerHTML={{ __html: highlightedText }}
-                style={{ whiteSpace: "pre-wrap" }}
-              ></div>
-            </div>
-          </Panel>
+          <>
+            <Panel order={1}>
+              <div className="content-preview content-preview-target">
+                <div className="font-bold">获取内容</div>
+                <div
+                  ref={contentPreviewRef}
+                  dangerouslySetInnerHTML={{ __html: highlightedText }}
+                  style={{ whiteSpace: "pre-wrap" }}
+                ></div>
+              </div>
+            </Panel>
+            <PanelResizeHandle className="w-1 bg-stone-200" />
+          </>
         )}
 
-        {isVisibleContent && <PanelResizeHandle className="w-1 bg-stone-200" />}
-
-        <Panel>
+        <Panel order={2}>
           <div className="content-preview content-preview-note react-tabs__tab-panel--selected">
             <div className="font-bold ">
               <div
@@ -484,7 +494,7 @@ const TextHighlighter = ({
                 }}
               >
                 <div>笔记内容</div>
-                <div>
+                <div className="flex gap-1">
                   <IconButton
                     size="small"
                     onClick={onToggleContent}
@@ -498,6 +508,22 @@ const TextHighlighter = ({
                       <VisibilityIcon fontSize="small" />
                     ) : (
                       <VisibilityOffIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                  {/* 添加目录控制按钮 */}
+                  <IconButton
+                    size="small"
+                    onClick={handleToggleOutline}
+                    sx={{
+                      color: "#666",
+                      padding: "2px",
+                    }}
+                    title={showOutline ? "隐藏目录" : "显示目录"}
+                  >
+                    {showOutline ? (
+                      <MenuBookIcon fontSize="small" />
+                    ) : (
+                      <ListIcon fontSize="small" />
                     )}
                   </IconButton>
                 </div>
@@ -519,14 +545,25 @@ const TextHighlighter = ({
             )}
           </div>
         </Panel>
+
+        {showOutline && (
+          <>
+            <PanelResizeHandle className="w-1 bg-stone-200" />
+            <Panel defaultSize={20} minSize={15} maxSize={40} order={3}>
+              <div className="h-full bg-white overflow-auto border-l border-gray-200">
+                <div className="p-2 font-bold border-b border-gray-200">
+                  目录
+                </div>
+                <DocumentOutline
+                  editor={activeRichTextEditor}
+                  activeTabsItem={activeRichTextEditor}
+                  richTextEditorEleRef={null}
+                />
+              </div>
+            </Panel>
+          </>
+        )}
       </PanelGroup>
-      <div className="w-60 h-full bg-red-200">
-        <DocumentOutline
-          editor={activeRichTextEditor}
-          activeTabsItem={activeRichTextEditor}
-          richTextEditorEleRef={null}
-        />
-      </div>
     </div>
   );
 };
