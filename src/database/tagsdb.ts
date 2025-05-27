@@ -238,4 +238,15 @@ export const tagsdb = {
 
     return tree;
   },
+
+  // 获取所有标签
+  getAllTags: async () => {
+    return tagsdb.query(
+      `SELECT t.id, t.label as name, t.category_id, t.parent_id, t.icon, t.color, t.sort_order,
+              c.name as category_name
+       FROM tags t
+       LEFT JOIN categories c ON t.category_id = c.id
+       ORDER BY t.category_id, t.sort_order, t.label`,
+    );
+  },
 };

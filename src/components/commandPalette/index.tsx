@@ -1,0 +1,494 @@
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Dialog,
+  DialogContent,
+  TextField,
+  List,
+  ListItem,
+  ListItemText,
+  Typography,
+  Box,
+  Chip,
+  IconButton,
+  Divider,
+  CircularProgress,
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import CloseIcon from "@mui/icons-material/Close";
+import FolderIcon from "@mui/icons-material/Folder";
+import BookIcon from "@mui/icons-material/Book";
+import LabelIcon from "@mui/icons-material/Label";
+import ArticleIcon from "@mui/icons-material/Article";
+import { styled } from "@mui/system";
+import { worksListDB } from "@/database/worksLists";
+import { tagsdb } from "@/database/tagsdb";
+import { noteContentDB } from "@/database/noteContentDB";
+import "./styles.scss";
+
+// 搜索结果类型定义
+interface SearchResult {
+  id: number;
+  title: string;
+  content?: string;
+  type: "vocabulary" | "tag" | "article";
+  category?: string;
+}
+
+// 样式组件
+const StyledDialog = styled(Dialog)(({ theme }) => ({
+  "& .MuiDialog-paper": {
+    backgroundColor: "#ffffff",
+    borderRadius: "12px",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+    maxWidth: "600px",
+    width: "90%",
+    maxHeight: "80vh",
+    margin: "20px",
+    position: "absolute",
+    top: 0,
+  },
+}));
+
+const SearchContainer = styled(Box)({
+  padding: "20px 20px 10px 20px",
+  borderBottom: "1px solid #e5e7eb",
+});
+
+const ResultsContainer = styled(Box)({
+  maxHeight: "400px",
+  overflowY: "auto",
+  padding: "10px 0",
+});
+
+const CategoryHeader = styled(Box)({
+  padding: "8px 20px",
+  backgroundColor: "#f8fafc",
+  borderBottom: "1px solid #e5e7eb",
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  fontWeight: 600,
+  fontSize: "14px",
+  color: "#374151",
+});
+
+const ResultItem = styled(ListItem)(({ theme }) => ({
+  padding: "12px 20px",
+  cursor: "pointer",
+  transition: "background-color 0.2s ease",
+  "&:hover": {
+    backgroundColor: "#f1f5f9",
+  },
+  "&.selected": {
+    backgroundColor: "#e0f2fe",
+    borderLeft: "3px solid #0ea5e9",
+  },
+}));
+
+const HighlightText = styled("span")({
+  backgroundColor: "#fef3c7",
+  padding: "1px 2px",
+  borderRadius: "2px",
+  fontWeight: 600,
+});
+
+interface CommandPaletteProps {
+  open: boolean;
+  onClose: () => void;
+  onSelectResult?: (result: SearchResult) => void;
+}
+
+const CommandPalette: React.FC<CommandPaletteProps> = ({
+  open,
+  onClose,
+  onSelectResult,
+}) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // 高亮搜索关键词
+  const highlightMatch = (text: string, query: string) => {
+    if (!query.trim()) return text;
+
+    const regex = new RegExp(
+      `(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+      "gi",
+    );
+    const parts = text.split(regex);
+
+    return parts.map((part, index) =>
+      regex.test(part) ? (
+        <HighlightText key={index}>{part}</HighlightText>
+      ) : (
+        part
+      ),
+    );
+  };
+
+  // 搜索词库
+  const searchVocabulary = async (query: string): Promise<SearchResult[]> => {
+    try {
+      const tags = await tagsdb.getTagsByCategory(1);
+      let results: SearchResult[] = [];
+
+      for (const tag of tags) {
+        const metadata = await worksListDB.getMetadataByTagId(tag.id);
+        if (metadata && metadata.length > 0) {
+          const filteredMetadata = metadata.filter((item: any) =>
+            item.title?.toLowerCase().includes(query.toLowerCase()),
+          );
+
+          const processedResults = filteredMetadata.flatMap((item: any) => {
+            if (
+              item.title &&
+              (item.title.includes("；") || item.title.includes(";"))
+            ) {
+              const titles = item.title.split(/[；;]/);
+              return titles
+                .map((title: string) => ({
+                  id: item.id,
+                  title: title.trim(),
+                  type: "vocabulary" as const,
+                  category: tag.name,
+                }))
+                .filter(
+                  (item: any) =>
+                    item.title &&
+                    item.title.toLowerCase().includes(query.toLowerCase()),
+                );
+            }
+            return {
+              id: item.id,
+              title: item.title,
+              type: "vocabulary" as const,
+              category: tag.name,
+            };
+          });
+
+          results = results.concat(processedResults);
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error("搜索词库失败:", error);
+      return [];
+    }
+  };
+
+  // 搜索标签
+  const searchTags = async (query: string): Promise<SearchResult[]> => {
+    try {
+      const allTags = await tagsdb.getAllTags();
+      return allTags
+        .filter((tag: any) =>
+          tag.name?.toLowerCase().includes(query.toLowerCase()),
+        )
+        .map((tag: any) => ({
+          id: tag.id,
+          title: tag.name,
+          type: "tag" as const,
+          content: tag.description || "",
+        }));
+    } catch (error) {
+      console.error("搜索标签失败:", error);
+      return [];
+    }
+  };
+
+  // 搜索文章内容
+  const searchArticles = async (query: string): Promise<SearchResult[]> => {
+    try {
+      // 这里需要根据您的数据库结构调整
+      // 假设有一个方法可以搜索所有笔记内容
+      const allNotes = await noteContentDB.searchNoteContent(query);
+      return allNotes.map((note: any) => ({
+        id: note.id,
+        title: note.title || `笔记 ${note.id}`,
+        content: note.content || "",
+        type: "article" as const,
+      }));
+    } catch (error) {
+      console.error("搜索文章失败:", error);
+      return [];
+    }
+  };
+
+  // 执行搜索
+  const performSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const [vocabularyResults, tagResults, articleResults] = await Promise.all(
+        [searchVocabulary(query), searchTags(query), searchArticles(query)],
+      );
+
+      const allResults = [
+        ...vocabularyResults,
+        ...tagResults,
+        ...articleResults,
+      ];
+
+      setSearchResults(allResults);
+      setSelectedIndex(0);
+    } catch (error) {
+      console.error("搜索失败:", error);
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 防抖搜索
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      performSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, performSearch]);
+
+  // 键盘导航
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        setSelectedIndex((prev) =>
+          prev < searchResults.length - 1 ? prev + 1 : prev,
+        );
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+        break;
+      case "Enter":
+        event.preventDefault();
+        if (searchResults[selectedIndex]) {
+          handleSelectResult(searchResults[selectedIndex]);
+        }
+        break;
+      case "Escape":
+        event.preventDefault();
+        onClose();
+        break;
+    }
+  };
+
+  // 选择结果
+  const handleSelectResult = (result: SearchResult) => {
+    console.log("选择了结果:", result);
+    onSelectResult?.(result);
+    onClose();
+  };
+
+  // 按类型分组结果
+  const groupedResults = searchResults.reduce((acc, result) => {
+    if (!acc[result.type]) {
+      acc[result.type] = [];
+    }
+    acc[result.type].push(result);
+    return acc;
+  }, {} as Record<string, SearchResult[]>);
+
+  // 获取类型图标
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "vocabulary":
+        return <BookIcon fontSize="small" />;
+      case "tag":
+        return <LabelIcon fontSize="small" />;
+      case "article":
+        return <ArticleIcon fontSize="small" />;
+      default:
+        return <FolderIcon fontSize="small" />;
+    }
+  };
+
+  // 获取类型名称
+  const getTypeName = (type: string) => {
+    switch (type) {
+      case "vocabulary":
+        return "词库";
+      case "tag":
+        return "标签";
+      case "article":
+        return "文章";
+      default:
+        return "其他";
+    }
+  };
+
+  // 重置状态
+  useEffect(() => {
+    if (open) {
+      setSearchQuery("");
+      setSearchResults([]);
+      setSelectedIndex(0);
+      // 聚焦搜索框
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+    }
+  }, [open]);
+
+  return (
+    <StyledDialog
+      open={open}
+      onClose={onClose}
+      disableRestoreFocus
+      PaperProps={{
+        onKeyDown: handleKeyDown,
+      }}
+    >
+      <DialogContent
+        sx={{
+          padding: 0,
+
+          // zIndex: 9999999,
+        }}
+      >
+        <SearchContainer>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <SearchIcon sx={{ color: "#6b7280" }} />
+            <TextField
+              ref={searchInputRef}
+              fullWidth
+              variant="standard"
+              placeholder="搜索词库、标签、文章内容..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                disableUnderline: true,
+                sx: {
+                  fontSize: "16px",
+                  "& input": {
+                    padding: "8px 0",
+                  },
+                },
+              }}
+            />
+            {loading && <CircularProgress size={20} />}
+            <IconButton size="small" onClick={onClose}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </SearchContainer>
+
+        <ResultsContainer>
+          {searchQuery && searchResults.length === 0 && !loading && (
+            <Box
+              sx={{
+                padding: "40px 20px",
+                textAlign: "center",
+                color: "#6b7280",
+              }}
+            >
+              <Typography>未找到相关结果</Typography>
+            </Box>
+          )}
+
+          {!searchQuery && (
+            <Box
+              sx={{
+                padding: "40px 20px",
+                textAlign: "center",
+                color: "#6b7280",
+              }}
+            >
+              <Typography>开始输入以搜索内容...</Typography>
+            </Box>
+          )}
+
+          {Object.entries(groupedResults).map(([type, results], groupIndex) => (
+            <Box key={type}>
+              <CategoryHeader>
+                {getTypeIcon(type)}
+                <span>{getTypeName(type)}</span>
+                <Chip size="small" label={results.length} />
+              </CategoryHeader>
+              <List disablePadding>
+                {results.map((result, index) => {
+                  const globalIndex =
+                    Object.entries(groupedResults)
+                      .slice(0, groupIndex)
+                      .reduce((acc, [, items]) => acc + items.length, 0) +
+                    index;
+
+                  return (
+                    <ResultItem
+                      key={`${result.type}-${result.id}-${index}`}
+                      className={
+                        selectedIndex === globalIndex ? "selected" : ""
+                      }
+                      onClick={() => handleSelectResult(result)}
+                    >
+                      <ListItemText
+                        primary={
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            {getTypeIcon(result.type)}
+                            <span>
+                              {highlightMatch(result.title, searchQuery)}
+                            </span>
+                            {result.category && (
+                              <Chip
+                                size="small"
+                                label={result.category}
+                                variant="outlined"
+                                sx={{ fontSize: "11px", height: "20px" }}
+                              />
+                            )}
+                          </Box>
+                        }
+                        secondary={
+                          result.content && (
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: "#6b7280",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                marginTop: "4px",
+                              }}
+                            >
+                              {highlightMatch(
+                                result.content.length > 100
+                                  ? result.content.substring(0, 100) + "..."
+                                  : result.content,
+                                searchQuery,
+                              )}
+                            </Typography>
+                          )
+                        }
+                      />
+                    </ResultItem>
+                  );
+                })}
+              </List>
+              {groupIndex < Object.keys(groupedResults).length - 1 && (
+                <Divider />
+              )}
+            </Box>
+          ))}
+        </ResultsContainer>
+      </DialogContent>
+    </StyledDialog>
+  );
+};
+
+export default CommandPalette;

@@ -6,9 +6,11 @@ import WordsBar from "@/components/wordsBar";
 import { IconButton, ListSubheader } from "@mui/material";
 import Button from "@mui/material/Button";
 import "@/assets/globalStyles.scss";
-import ComplextTree from "@/components/complexTree/index.tsx";
+import ComplextTree from "@/components/complexTree";
 import DocumentOutline from "@/components/documentOutline";
 import UpdateNotification from "./components/UpdateNotification";
+import CommandPalette from "./components/commandPalette";
+import { useCommandPalette } from "@/hooks/useCommandPalette";
 
 interface TreeItemData {
   index: string;
@@ -31,6 +33,34 @@ function App() {
   const [currentTab, setCurrentTab] = useState(null);
   const [activeRichTextEditor, setActiveRichTextEditor] = useState(null);
   const richTextEditorEleRef = useRef(null);
+
+  // 使用命令面板hook
+  const commandPalette = useCommandPalette({
+    enabled: true,
+    shortcut: "ctrl+o",
+  });
+
+  // 处理命令面板选择结果
+  const handleCommandPaletteSelect = (result: any) => {
+    console.log("命令面板选择结果:", result);
+    // 根据结果类型进行相应操作
+    switch (result.type) {
+      case "vocabulary":
+        // 可以在这里处理词库选择
+        console.log("选择了词库:", result);
+        break;
+      case "tag":
+        // 可以在这里处理标签选择
+        console.log("选择了标签:", result);
+        break;
+      case "article":
+        // 可以在这里处理文章选择
+        console.log("选择了文章:", result);
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
     <div className="App w-full flex-1 flex h-full absolute top-0 left-0 bottom-0">
@@ -69,7 +99,11 @@ function App() {
           richTextEditorEleRef={richTextEditorEleRef}
         />
       </div>
-
+      <CommandPalette
+        open={commandPalette.isOpen}
+        onClose={commandPalette.close}
+        onSelectResult={handleCommandPaletteSelect}
+      />
       {/* 更新通知组件 */}
       {/* <UpdateNotification /> */}
     </div>

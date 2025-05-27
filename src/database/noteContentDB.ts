@@ -108,4 +108,31 @@ export const noteContentDB = {
     );
     return result.length > 0;
   },
+
+  /**
+   * 搜索笔记内容
+   * @param {string} query - 搜索关键词
+   * @returns {Promise<Array<{id: number, title: string, content: string}>>} 搜索结果
+   */
+  searchNoteContent: async (query: string) => {
+    if (!query.trim()) return [];
+
+    const searchTerm = `%${query}%`;
+    const result = await noteContentDB.query<
+      Array<{ note_id: number; content: string }>
+    >(
+      `SELECT note_id, content 
+       FROM notes_content 
+       WHERE content LIKE ? 
+       ORDER BY note_id 
+       LIMIT 50`,
+      [searchTerm],
+    );
+
+    return result.map((item) => ({
+      id: item.note_id,
+      title: `笔记 ${item.note_id}`,
+      content: item.content || "",
+    }));
+  },
 };

@@ -1,0 +1,107 @@
+.command-palette {
+  .search-input {
+    font-size: 16px;
+
+    &::placeholder {
+      color: #9ca3af;
+    }
+  }
+
+  .category-section {
+    border-bottom: 1px solid #e5e7eb;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  .category-header {
+    background-color: #f8fafc;
+    color: #374151;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 8px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .result-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-left: 3px solid transparent;
+
+    &:hover {
+      background-color: #f1f5f9;
+    }
+
+    &.selected {
+      background-color: #e0f2fe;
+      border-left-color: #0ea5e9;
+    }
+
+    .result-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .result-content {
+      color: #6b7280;
+      font-size: 14px;
+      line-height: 1.4;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+  }
+
+  .highlight {
+    background-color: #fef3c7;
+    padding: 1px 2px;
+    border-radius: 2px;
+    font-weight: 600;
+  }
+
+  .empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    color: #6b7280;
+  }
+
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .category-chip {
+    font-size: 11px;
+    height: 20px;
+  }
+
+  .results-count {
+    background-color: #e5e7eb;
+    color: #374151;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+  }
+}
+
+// 键盘快捷键提示
+.keyboard-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  background-color: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+}
