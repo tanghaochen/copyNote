@@ -93,9 +93,11 @@ const ResultItem = styled(ListItem)(({ theme }) => ({
 
 const HighlightText = styled("span")({
   backgroundColor: "#fef3c7",
-  padding: "1px 2px",
-  borderRadius: "2px",
+  color: "#92400e",
+  padding: "2px 4px",
+  borderRadius: "3px",
   fontWeight: 600,
+  boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
 });
 
 interface CommandPaletteProps {
@@ -121,21 +123,22 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   // 高亮搜索关键词
   const highlightMatch = (text: string, query: string) => {
-    if (!query.trim()) return text;
+    if (!query.trim() || !text) return text;
 
-    const regex = new RegExp(
-      `(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-      "gi",
-    );
+    // 转义特殊字符并创建不区分大小写的正则表达式
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`(${escapedQuery})`, "gi");
+
+    // 分割文本并高亮匹配部分
     const parts = text.split(regex);
 
-    return parts.map((part, index) =>
-      regex.test(part) ? (
-        <HighlightText key={index}>{part}</HighlightText>
-      ) : (
-        part
-      ),
-    );
+    return parts.map((part, index) => {
+      // 检查是否是匹配的部分（不区分大小写）
+      if (part.toLowerCase() === query.toLowerCase()) {
+        return <HighlightText key={index}>{part}</HighlightText>;
+      }
+      return part;
+    });
   };
 
   // 搜索词库
@@ -213,19 +216,61 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
   // 搜索文章内容
   const searchArticles = async (query: string): Promise<SearchResult[]> => {
     try {
-      // 这里需要根据您的数据库结构调整
-      // 假设有一个方法可以搜索所有笔记内容
+      // 使用优化后的搜索方法，优先搜索纯文本内容
       const allNotes = await noteContentDB.searchNoteContent(query);
-      return allNotes.map((note: any) => ({
-        id: note.id,
-        title: note.title || `笔记 ${note.id}`,
-        content: note.content || "",
-        type: "article" as const,
-      }));
+      return allNotes.map((note: any) => {
+        // 生成内容预览，包含匹配词汇前后的文本
+        const previewContent = generateContentPreview(note.content, query);
+
+        return {
+          id: note.id,
+          title: note.title || `笔记 ${note.id}`,
+          content: previewContent,
+          type: "article" as const,
+        };
+      });
     } catch (error) {
       console.error("搜索文章失败:", error);
       return [];
     }
+  };
+
+  // 生成内容预览，截取匹配关键词前后的文本
+  const generateContentPreview = (content: string, query: string): string => {
+    if (!content || !query.trim()) return content;
+
+    const normalizedContent = content.replace(/\s+/g, " ").trim();
+    const normalizedQuery = query.toLowerCase();
+    const contentLower = normalizedContent.toLowerCase();
+
+    // 查找第一个匹配位置
+    const matchIndex = contentLower.indexOf(normalizedQuery);
+    if (matchIndex === -1) return normalizedContent.substring(0, 150) + "...";
+
+    // 设置预览参数
+    const previewLength = 150; // 总预览长度
+    const beforeLength = 60; // 关键词前的字符数
+    const afterLength = 60; // 关键词后的字符数
+
+    // 计算截取范围
+    const start = Math.max(0, matchIndex - beforeLength);
+    const end = Math.min(
+      normalizedContent.length,
+      matchIndex + query.length + afterLength,
+    );
+
+    let preview = normalizedContent.substring(start, end);
+
+    // 添加省略号
+    if (start > 0) preview = "..." + preview;
+    if (end < normalizedContent.length) preview = preview + "...";
+
+    // 确保预览长度不超过限制
+    if (preview.length > previewLength) {
+      preview = preview.substring(0, previewLength) + "...";
+    }
+
+    return preview;
   };
 
   // 执行搜索
@@ -484,17 +529,21 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
                                 display: "-webkit-box",
-                                WebkitLineClamp: 2,
+                                WebkitLineClamp:
+                                  result.type === "article" ? 3 : 2,
                                 WebkitBoxOrient: "vertical",
                                 marginTop: "4px",
+                                lineHeight: 1.4,
+                                ...(result.type === "article" && {
+                                  backgroundColor: "#f8fafc",
+                                  padding: "6px 8px",
+                                  borderRadius: "4px",
+                                  marginTop: "6px",
+                                  fontSize: "13px",
+                                }),
                               }}
                             >
-                              {highlightMatch(
-                                result.content.length > 100
-                                  ? result.content.substring(0, 100) + "..."
-                                  : result.content,
-                                searchQuery,
-                              )}
+                              {highlightMatch(result.content, searchQuery)}
                             </Typography>
                           )
                         }

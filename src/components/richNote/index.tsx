@@ -130,8 +130,8 @@ type RichNoteProps = {
 };
 
 // 在组件外部定义防抖函数
-const debouncedUpdateContent = debounce((value, content) => {
-  noteContentDB.updateContent(value, content);
+const debouncedUpdateContent = debounce((noteId, jsonContent, plainText) => {
+  noteContentDB.updateContent(noteId, jsonContent, plainText);
 }, 500);
 
 export default React.memo(
@@ -270,7 +270,8 @@ export default React.memo(
     const handleTPBlur = useCallback(
       (e) => {
         const TPContent = e.editor.getJSON();
-        debouncedUpdateContent(tabItem.value, TPContent);
+        const plainText = e.editor.getText(); // 获取纯文本内容
+        debouncedUpdateContent(tabItem.value, TPContent, plainText);
       },
       [tabItem.value],
     );

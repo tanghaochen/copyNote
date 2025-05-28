@@ -100,6 +100,7 @@ export const migrations: Migration[] = [
         CREATE TABLE notes_content (
           note_id    INTEGER PRIMARY KEY,
           content    TEXT NOT NULL,
+          plain_text TEXT NOT NULL DEFAULT '',
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (note_id) REFERENCES notes_metadata(id)
         );
@@ -117,6 +118,7 @@ export const migrations: Migration[] = [
         CREATE VIRTUAL TABLE notes_fts USING fts5(
           title,
           content,
+          plain_text,
           content_rowid='note_id'
         );
 

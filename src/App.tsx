@@ -11,6 +11,7 @@ import DocumentOutline from "@/components/documentOutline";
 import UpdateNotification from "./components/UpdateNotification";
 import CommandPalette from "./components/commandPalette";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
+import { noteContentDB } from "@/database/noteContentDB";
 
 // 类型定义
 interface WorksListItem {
@@ -61,6 +62,24 @@ function App() {
     enabled: true,
     shortcut: "ctrl+o",
   });
+
+  // 应用启动时初始化纯文本内容
+  useEffect(() => {
+    const initializePlainText = async () => {
+      try {
+        console.log("开始为现有笔记生成纯文本内容...");
+        const updatedCount =
+          await noteContentDB.generatePlainTextForExistingNotes();
+        if (updatedCount > 0) {
+          console.log(`已为 ${updatedCount} 个笔记生成纯文本内容`);
+        }
+      } catch (error) {
+        console.error("生成纯文本内容失败:", error);
+      }
+    };
+
+    initializePlainText();
+  }, []); // 只在组件挂载时执行一次
 
   // 处理命令面板选择结果变化
   useEffect(() => {

@@ -6,15 +6,22 @@ export const noteContentDB = {
   /**
    * 创建/更新笔记内容
    */
-  updateContent: (noteId: number, content: string | object) => {
+  updateContent: (
+    noteId: number,
+    content: string | object,
+    plainText: string = "",
+  ) => {
     if (!content) throw new Error("content 不能为空");
     const contentString =
       typeof content === "object" ? JSON.stringify(content) : content;
     db.prepare(
-      `INSERT INTO notes_content (note_id, content)
-       VALUES (?, ?)
-       ON CONFLICT(note_id) DO UPDATE SET content = excluded.content`,
-    ).run(noteId, contentString);
+      `INSERT INTO notes_content (note_id, content, plain_text)
+       VALUES (?, ?, ?)
+       ON CONFLICT(note_id) DO UPDATE SET 
+         content = excluded.content, 
+         plain_text = excluded.plain_text,
+         updated_at = CURRENT_TIMESTAMP`,
+    ).run(noteId, contentString, plainText);
   },
 
   /**
@@ -37,6 +44,36 @@ export const noteContentDB = {
       }
     }
     return content;
+  },
+
+  /**
+   * 获取笔记纯文本内容
+   */
+  getPlainTextByNoteId: (noteId: number): string | null => {
+    const row = db
+      .prepare("SELECT plain_text FROM notes_content WHERE note_id = ?")
+      .get(noteId);
+    return row?.plain_text || null;
+  },
+
+  /**
+   * 搜索笔记纯文本内容
+   */
+  searchPlainText: (query: string, limit: number = 50) => {
+    if (!query.trim()) return [];
+
+    const searchTerm = `%${query}%`;
+    return db
+      .prepare(
+        `
+        SELECT note_id, plain_text 
+        FROM notes_content 
+        WHERE plain_text LIKE ? 
+        ORDER BY note_id 
+        LIMIT ?
+      `,
+      )
+      .all(searchTerm, limit);
   },
 
   /**
