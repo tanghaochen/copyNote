@@ -1,141 +1,159 @@
 # 命令面板组件 (CommandPalette)
 
-一个功能强大的搜索命令面板组件，支持搜索词库、标签和文章内容。
+一个功能强大的全局搜索组件，支持快捷键打开，可以搜索词库、标签和文章内容。
 
 ## 功能特性
 
-- 🔍 **全局搜索**: 支持搜索词库标题、标签名称和文章内容
+- 🔍 **全局搜索**: 支持搜索词库标题、标签名称、文章内容
 - ⌨️ **快捷键支持**: 默认使用 `Ctrl+O` 打开命令面板
 - 📂 **分类显示**: 搜索结果按类型分组显示（词库、标签、文章）
 - 🎯 **关键词高亮**: 搜索关键词在结果中高亮显示
-- ⏰ **防抖搜索**: 300ms 防抖延迟，提高搜索性能
-- 🎹 **键盘导航**: 支持上下箭头导航和回车选择
+- ⏰ **防抖搜索**: 300ms 防抖延迟，提升性能
+- 🎹 **键盘导航**: 支持上下箭头键选择，回车确认，ESC 关闭
+- 📤 **状态暴露**: 向父组件暴露选中结果，支持自动打开对应内容
 
 ## 使用方法
 
-### 基本用法
+### 基础用法
 
 ```tsx
-import CommandPalette from "@/components/commandPalette";
+import CommandPalette from "./components/commandPalette";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
 
 function App() {
-  // 使用命令面板hook
   const commandPalette = useCommandPalette({
     enabled: true,
     shortcut: "ctrl+o",
   });
 
-  // 处理选择结果
-  const handleSelect = (result) => {
-    console.log("选择了:", result);
-    // 根据结果类型进行相应操作
-    switch (result.type) {
-      case "vocabulary":
-        // 处理词库选择
-        break;
-      case "tag":
-        // 处理标签选择
-        break;
-      case "article":
-        // 处理文章选择
-        break;
-    }
-  };
-
   return (
     <div>
+      {/* 其他组件 */}
       <CommandPalette
         open={commandPalette.isOpen}
         onClose={commandPalette.close}
-        onSelectResult={handleSelect}
       />
     </div>
   );
 }
 ```
 
-### Props
+### 高级用法 - 状态暴露
 
-| 属性             | 类型                             | 必需 | 默认值 | 描述                   |
-| ---------------- | -------------------------------- | ---- | ------ | ---------------------- |
-| `open`           | `boolean`                        | ✅   | -      | 控制命令面板是否显示   |
-| `onClose`        | `() => void`                     | ✅   | -      | 关闭命令面板的回调函数 |
-| `onSelectResult` | `(result: SearchResult) => void` | ❌   | -      | 选择搜索结果的回调函数 |
+通过 `selectedResult` 和 `onSelectedResultChange` props，父组件可以监听选中结果的变化：
 
-### SearchResult 类型
+```tsx
+import { useState, useEffect } from "react";
+import CommandPalette, { SelectedResult } from "./components/commandPalette";
 
-```typescript
+function App() {
+  const [selectedResult, setSelectedResult] = useState<SelectedResult | null>(
+    null,
+  );
+
+  // 监听选中结果变化
+  useEffect(() => {
+    if (selectedResult) {
+      console.log("用户选择了:", selectedResult);
+
+      // 根据结果类型执行相应操作
+      switch (selectedResult.type) {
+        case "vocabulary":
+          // 打开词库笔记
+          openVocabulary(selectedResult);
+          break;
+        case "tag":
+          // 打开标签页面
+          openTag(selectedResult);
+          break;
+        case "article":
+          // 打开文章
+          openArticle(selectedResult);
+          break;
+      }
+    }
+  }, [selectedResult]);
+
+  return (
+    <CommandPalette
+      open={commandPalette.isOpen}
+      onClose={commandPalette.close}
+      selectedResult={selectedResult}
+      onSelectedResultChange={setSelectedResult}
+    />
+  );
+}
+```
+
+## Props
+
+| 属性名                   | 类型                                       | 必需 | 默认值 | 说明                         |
+| ------------------------ | ------------------------------------------ | ---- | ------ | ---------------------------- |
+| `open`                   | `boolean`                                  | ✅   | -      | 控制面板是否打开             |
+| `onClose`                | `() => void`                               | ✅   | -      | 关闭面板的回调函数           |
+| `onSelectResult`         | `(result: SearchResult) => void`           | ❌   | -      | 选择结果时的回调（向后兼容） |
+| `selectedResult`         | `SelectedResult \| null`                   | ❌   | -      | 当前选中的结果状态           |
+| `onSelectedResultChange` | `(result: SelectedResult \| null) => void` | ❌   | -      | 选中结果变化时的回调         |
+
+## 类型定义
+
+### SearchResult
+
+```tsx
 interface SearchResult {
   id: number;
   title: string;
   content?: string;
   type: "vocabulary" | "tag" | "article";
   category?: string;
+  tags_id?: number;
 }
 ```
 
-## 快捷键
+### SelectedResult
 
-- `Ctrl+O`: 打开/关闭命令面板
-- `ArrowUp/ArrowDown`: 在搜索结果中导航
+```tsx
+interface SelectedResult extends SearchResult {
+  timestamp: number; // 确保状态变化被正确监听
+}
+```
+
+## 键盘快捷键
+
+- `Ctrl+O`: 打开命令面板
+- `↑/↓`: 在搜索结果中导航
 - `Enter`: 选择当前高亮的结果
-- `Escape`: 关闭命令面板
+- `Esc`: 关闭命令面板
 
-## 搜索功能
+## 搜索范围
 
-命令面板支持以下类型的搜索：
+1. **词库 (vocabulary)**
 
-### 1. 词库搜索
+   - 搜索词库标题
+   - 支持分号分隔的多标题搜索
+   - 按标签分类显示
 
-- 搜索 `category_id = 1` 的所有标签下的词库标题
-- 支持分号分隔的标题（会拆分为多个词条）
-- 显示所属分类信息
+2. **标签 (tag)**
 
-### 2. 标签搜索
+   - 搜索标签名称
+   - 显示标签描述（如果有）
 
-- 搜索所有标签的名称
-- 显示标签描述信息
+3. **文章 (article)**
+   - 搜索笔记内容
+   - 显示内容预览（前 100 字符）
 
-### 3. 文章内容搜索
+## 样式定制
 
-- 在笔记内容中进行全文搜索
-- 支持内容预览（限制 100 字符）
-- 最多显示 50 条结果
+组件使用了 Material-UI 和自定义 SCSS 样式。可以通过修改 `styles.scss` 文件来定制外观。
 
-## 自定义样式
+## 依赖
 
-命令面板使用了 SCSS 样式文件，你可以通过覆盖以下类名来自定义样式：
-
-```scss
-.command-palette {
-  // 主容器样式
-
-  .search-input {
-    // 搜索输入框样式
-  }
-
-  .category-header {
-    // 分类标题样式
-  }
-
-  .result-item {
-    // 搜索结果项样式
-
-    &.selected {
-      // 选中状态样式
-    }
-  }
-
-  .highlight {
-    // 关键词高亮样式
-  }
-}
-```
+- React 18+
+- Material-UI (@mui/material)
+- 数据库模块 (worksListDB, tagsdb, noteContentDB)
 
 ## 注意事项
 
-1. 确保数据库方法 `searchNoteContent` 和 `getAllTags` 已正确实现
-2. 组件依赖 Material-UI 组件库
-3. 搜索功能需要有效的数据库连接
-4. 建议在全局级别使用，确保快捷键在任何页面都能正常工作
+- 搜索功能依赖于数据库模块的正确实现
+- 防抖延迟设置为 300ms，如需调整请修改 `useEffect` 中的延迟时间
+- `timestamp` 字段用于确保相同内容的重复选择也能被 React 正确监听

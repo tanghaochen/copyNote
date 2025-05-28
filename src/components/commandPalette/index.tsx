@@ -26,12 +26,18 @@ import { noteContentDB } from "@/database/noteContentDB";
 import "./styles.scss";
 
 // 搜索结果类型定义
-interface SearchResult {
+export interface SearchResult {
   id: number;
   title: string;
   content?: string;
   type: "vocabulary" | "tag" | "article";
   category?: string;
+  tags_id?: number; // 添加标签ID用于打开对应标签
+}
+
+// 添加选中结果的扩展类型
+export interface SelectedResult extends SearchResult {
+  timestamp: number; // 添加时间戳确保状态变化被监听
 }
 
 // 样式组件
@@ -96,12 +102,16 @@ interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
   onSelectResult?: (result: SearchResult) => void;
+  selectedResult?: SelectedResult | null; // 暴露给父组件的选中结果状态
+  onSelectedResultChange?: (result: SelectedResult | null) => void; // 状态改变回调
 }
 
 const CommandPalette: React.FC<CommandPaletteProps> = ({
   open,
   onClose,
   onSelectResult,
+  selectedResult,
+  onSelectedResultChange,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -192,6 +202,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
           title: tag.name,
           type: "tag" as const,
           content: tag.description || "",
+          tags_id: tag.id, // 添加标签ID
         }));
     } catch (error) {
       console.error("搜索标签失败:", error);
@@ -284,6 +295,17 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
   // 选择结果
   const handleSelectResult = (result: SearchResult) => {
     console.log("选择了结果:", result);
+
+    // 创建带时间戳的选中结果
+    const selectedResultWithTimestamp: SelectedResult = {
+      ...result,
+      timestamp: Date.now(),
+    };
+
+    // 通知父组件状态变化
+    onSelectedResultChange?.(selectedResultWithTimestamp);
+
+    // 保持原有的回调
     onSelectResult?.(result);
     onClose();
   };
@@ -360,6 +382,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
             <TextField
               ref={searchInputRef}
               fullWidth
+              autoFocus
               variant="standard"
               placeholder="搜索词库、标签、文章内容..."
               value={searchQuery}
