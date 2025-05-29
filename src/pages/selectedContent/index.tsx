@@ -58,7 +58,6 @@ interface HighlightProps {
 // 自定义样式组件
 const ControlBar = styled("div")(
   ({ theme, isPinned }: { theme?: any; isPinned: boolean }) => ({
-    // width: "100%",
     backgroundColor: "#1f2937", // 深灰色背景
     padding: "0.25rem 1rem",
     borderRadius: "0.375rem 0.375rem 0 0", // 只有顶部圆角
@@ -68,12 +67,13 @@ const ControlBar = styled("div")(
     alignItems: "center",
     boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
     transition: "all 0.3s ease",
-    position: "sticky",
+    position: "relative", // 改为relative避免遮挡
     top: "0",
     zIndex: 100,
     height: "1.5rem",
     color: "#fff",
     WebkitAppRegion: "drag", // 添加可拖拽属性
+    flexShrink: 0, // 防止压缩
   }),
 );
 
@@ -89,6 +89,13 @@ const KeywordsContainer = styled("div")({
   width: "15rem",
   flexShrink: 0,
   // maxHeight: "250px", // 限制高度以适应初始窗口大小
+});
+
+// 添加主内容容器样式
+const MainContentContainer = styled("div")({
+  display: "flex",
+  height: "calc(100vh - 1.5rem)", // 减去ControlBar的高度
+  overflow: "hidden",
 });
 
 const KeywordItem = styled("div")(({ isActive }: { isActive: boolean }) => ({
@@ -264,10 +271,9 @@ const TextHighlighter = ({
 
     setVisibleContent(true);
 
-    // 使用直接方式调整窗口大小
-    if (!showPanel) {
-      window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
-    }
+    // 每次点击都调整窗口大小，确保用户体验一致
+    console.log("点击关键词，调整窗口大小");
+    window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
 
     // 查找对应的ID
     const id = titleToIdMap.get(keyword);
@@ -366,10 +372,6 @@ const TextHighlighter = ({
 
   useEffect(() => {
     console.log(textContent, items);
-  }, [textContent, items]);
-
-  useEffect(() => {
-    console.log(textContent, items);
     setShowPanel(false);
 
     const handler = async (e: MouseEvent) => {
@@ -384,7 +386,8 @@ const TextHighlighter = ({
         // 显示面板
         setShowPanel(true);
 
-        // 使用直接方式调整窗口大小
+        // 每次点击高亮词都调整窗口大小
+        console.log("点击高亮词，调整窗口大小");
         window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
 
         try {
@@ -453,119 +456,128 @@ const TextHighlighter = ({
   }, [showOutline]);
 
   return (
-    <div className="highlighter-container h-full" style={{ display: "flex" }}>
-      <KeywordsContainer ref={keywordsContainerRef}>
-        {displayKeywords.map((keyword, index) => (
-          <KeywordItem
-            key={index}
-            isActive={activeKeyword === keyword}
-            onClick={() => handleChipClick(keyword)}
-          >
-            {keyword}
-          </KeywordItem>
-        ))}
-        {displayKeywords.length === 0 && (
-          <div style={{ padding: "0.5rem", color: "#666" }}>
-            未找到相关关键词
-          </div>
-        )}
-      </KeywordsContainer>
+    <div
+      className="highlighter-container"
+      style={{ display: "flex", flexDirection: "column", height: "100%" }}
+    >
+      <MainContentContainer>
+        <KeywordsContainer ref={keywordsContainerRef}>
+          {displayKeywords.map((keyword, index) => (
+            <KeywordItem
+              key={index}
+              isActive={activeKeyword === keyword}
+              onClick={() => handleChipClick(keyword)}
+            >
+              {keyword}
+            </KeywordItem>
+          ))}
+          {displayKeywords.length === 0 && (
+            <div style={{ padding: "0.5rem", color: "#666" }}>
+              未找到相关关键词
+            </div>
+          )}
+        </KeywordsContainer>
 
-      {/* 点击关键词list显示panel， */}
-      <PanelGroup direction="horizontal" ref={ref}>
-        {isVisibleContent && (
-          <>
-            <Panel order={1}>
-              <div className="content-preview content-preview-target">
-                <div className="font-bold">获取内容</div>
+        {/* 点击关键词list显示panel， */}
+        <PanelGroup direction="horizontal" ref={ref}>
+          {isVisibleContent && (
+            <>
+              <Panel order={1}>
+                <div className="content-preview content-preview-target">
+                  <div className="font-bold">获取内容</div>
+                  <div
+                    ref={contentPreviewRef}
+                    dangerouslySetInnerHTML={{ __html: highlightedText }}
+                    style={{ whiteSpace: "pre-wrap" }}
+                  ></div>
+                </div>
+              </Panel>
+              <PanelResizeHandle className="w-1 bg-stone-200" />
+            </>
+          )}
+
+          <Panel order={2}>
+            <div className="content-preview content-preview-note react-tabs__tab-panel--selected">
+              <div className="font-bold ">
                 <div
-                  ref={contentPreviewRef}
-                  dangerouslySetInnerHTML={{ __html: highlightedText }}
-                  style={{ whiteSpace: "pre-wrap" }}
-                ></div>
-              </div>
-            </Panel>
-            <PanelResizeHandle className="w-1 bg-stone-200" />
-          </>
-        )}
-
-        <Panel order={2}>
-          <div className="content-preview content-preview-note react-tabs__tab-panel--selected">
-            <div className="font-bold ">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  width: "100%",
-                }}
-              >
-                <div>笔记内容</div>
-                <div className="flex gap-4">
-                  <IconButton
-                    size="small"
-                    onClick={onToggleContent}
-                    sx={{
-                      color: "#666",
-                      padding: "2px",
-                      backgroundColor: showContent ? "#E7E9E8" : "transparent",
-                    }}
-                    title={showContent ? "隐藏获取内容" : "显示获取内容"}
-                  >
-                    <VisibilityIcon fontSize="small" />
-                  </IconButton>
-                  {/* 添加目录控制按钮 */}
-                  <IconButton
-                    size="small"
-                    onClick={handleToggleOutline}
-                    sx={{
-                      color: "#666",
-                      padding: "2px",
-                      backgroundColor: showOutline ? "#E7E9E8" : "transparent",
-                    }}
-                    title={showOutline ? "隐藏目录" : "显示目录"}
-                  >
-                    {showOutline ? (
-                      <TocOutlinedIcon fontSize="small" />
-                    ) : (
-                      <ListIcon fontSize="small" />
-                    )}
-                  </IconButton>
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                  }}
+                >
+                  <div>笔记内容</div>
+                  <div className="flex gap-4">
+                    <IconButton
+                      size="small"
+                      onClick={onToggleContent}
+                      sx={{
+                        color: "#666",
+                        padding: "2px",
+                        backgroundColor: showContent
+                          ? "#E7E9E8"
+                          : "transparent",
+                      }}
+                      title={showContent ? "隐藏获取内容" : "显示获取内容"}
+                    >
+                      <VisibilityIcon fontSize="small" />
+                    </IconButton>
+                    {/* 添加目录控制按钮 */}
+                    <IconButton
+                      size="small"
+                      onClick={handleToggleOutline}
+                      sx={{
+                        color: "#666",
+                        padding: "2px",
+                        backgroundColor: showOutline
+                          ? "#E7E9E8"
+                          : "transparent",
+                      }}
+                      title={showOutline ? "隐藏目录" : "显示目录"}
+                    >
+                      {showOutline ? (
+                        <TocOutlinedIcon fontSize="small" />
+                      ) : (
+                        <ListIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </div>
                 </div>
               </div>
-            </div>
-            {/* <div dangerouslySetInnerHTML={{ __html: noteContent }}></div> */}
-            {/* 如果没有高亮，富文本不显示， 提供没有找到 */}
-            {foundKeywords.length > 0 ? (
-              <RichTextEditor
-                setActiveRichTextEditor={updateEditorRef}
-                tabItem={{ content: noteContent, value: activeNoteId }}
-                isShowHeading={false}
-              />
-            ) : (
-              // 没有找到
-              <div className="w-full h-full flex items-center justify-center">
-                <div>没有找到相关内容</div>
-              </div>
-            )}
-          </div>
-        </Panel>
-
-        {showOutline && (
-          <>
-            <PanelResizeHandle className="w-1 bg-stone-200" />
-            <Panel defaultSize={40} minSize={15} maxSize={40} order={3}>
-              <div className="h-full bg-white overflow-auto border-l border-gray-200">
-                <DocumentOutline
-                  editor={activeRichTextEditor}
-                  activeTabsItem={activeRichTextEditor}
-                  richTextEditorEleRef={null}
+              {/* <div dangerouslySetInnerHTML={{ __html: noteContent }}></div> */}
+              {/* 如果没有高亮，富文本不显示， 提供没有找到 */}
+              {foundKeywords.length > 0 ? (
+                <RichTextEditor
+                  setActiveRichTextEditor={updateEditorRef}
+                  tabItem={{ content: noteContent, value: activeNoteId }}
+                  isShowHeading={false}
                 />
-              </div>
-            </Panel>
-          </>
-        )}
-      </PanelGroup>
+              ) : (
+                // 没有找到
+                <div className="w-full h-full flex items-center justify-center">
+                  <div>没有找到相关内容</div>
+                </div>
+              )}
+            </div>
+          </Panel>
+
+          {showOutline && (
+            <>
+              <PanelResizeHandle className="w-1 bg-stone-200" />
+              <Panel defaultSize={40} minSize={15} maxSize={40} order={3}>
+                <div className="h-full bg-white overflow-auto border-l border-gray-200">
+                  <DocumentOutline
+                    editor={activeRichTextEditor}
+                    activeTabsItem={activeRichTextEditor}
+                    richTextEditorEleRef={null}
+                  />
+                </div>
+              </Panel>
+            </>
+          )}
+        </PanelGroup>
+      </MainContentContainer>
     </div>
   );
 };
@@ -646,12 +658,14 @@ const App = () => {
                   commandPaletteSelectedResult.title
                 }\n\n${DOMPurify.sanitize(noteItem)}`,
               );
-              // 调整窗口大小以显示内容
+              // 确保每次都调整窗口大小
+              console.log("命令面板选择词库，调整窗口大小");
               window.ipcRenderer?.send("resize-window", {
                 width: 940,
                 height: 550,
               });
               setIsWindowVisible(true);
+              setShowContent(true); // 显示获取内容面板
             } catch (error) {
               console.error("获取词库内容失败:", error);
               setCustomClipBoardContent(
@@ -676,12 +690,14 @@ const App = () => {
                   commandPaletteSelectedResult.title
                 }\n\n${DOMPurify.sanitize(noteItem)}`,
               );
-              // 调整窗口大小以显示内容
+              // 确保每次都调整窗口大小
+              console.log("命令面板选择文章，调整窗口大小");
               window.ipcRenderer?.send("resize-window", {
                 width: 940,
                 height: 550,
               });
               setIsWindowVisible(true);
+              setShowContent(true); // 显示获取内容面板
             } catch (error) {
               console.error("获取文章内容失败:", error);
               setCustomClipBoardContent(
@@ -822,6 +838,12 @@ const App = () => {
   return (
     <div
       className="noteHightLightRoot"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        overflow: "hidden",
+      }}
       onMouseEnter={() => {
         window.ipcRenderer?.send("mouse-enter-window");
       }}
@@ -909,15 +931,17 @@ const App = () => {
       </ControlBar>
 
       {/* 高亮组件 */}
-      <TextHighlighter
-        textContent={customClipBoardContent}
-        items={highlightedKeywords}
-        isVisibleContent={isWindowVisible && showContent}
-        setVisibleContent={setIsWindowVisible}
-        showContentPanel={showContent}
-        showContent={showContent}
-        onToggleContent={handleToggleContent}
-      />
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        <TextHighlighter
+          textContent={customClipBoardContent}
+          items={highlightedKeywords}
+          isVisibleContent={isWindowVisible && showContent}
+          setVisibleContent={setIsWindowVisible}
+          showContentPanel={showContent}
+          showContent={showContent}
+          onToggleContent={handleToggleContent}
+        />
+      </div>
 
       {/* 命令面板组件 */}
       <CommandPalette
