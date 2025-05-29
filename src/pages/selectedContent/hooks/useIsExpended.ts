@@ -145,8 +145,7 @@ export const useIsExpended = (): boolean => {
         };
 
         expendedState.setDebugInfo(debugInfo);
-
-        console.log("目录按钮可见性调试:", debugInfo);
+        // console.log("目录按钮可见性调试:", debugInfo);
       } else {
         // 按钮未找到
         expendedState.isExpended = false;
@@ -156,7 +155,7 @@ export const useIsExpended = (): boolean => {
           timestamp: new Date().toLocaleTimeString(),
         };
         expendedState.setDebugInfo(debugInfo);
-        console.log("目录按钮可见性调试:", debugInfo);
+        // console.log("目录按钮可见性调试:", debugInfo);
       }
     };
 

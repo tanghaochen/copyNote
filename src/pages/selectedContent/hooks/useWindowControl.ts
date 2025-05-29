@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useIsExpended } from "./useIsExpended";
+import { useExpendedDebugInfo, useIsExpended } from "./useIsExpended";
 
 export const useWindowControl = () => {
   const [isPinned, setIsPinned] = useState(false);
@@ -32,12 +32,26 @@ export const useWindowControl = () => {
     console.log("调整窗口大小:", { width, height });
     window.ipcRenderer?.send("resize-window", { width, height });
   }, []);
-  const isExpended = useIsExpended();
 
-  const moveWindowToCursor = useCallback(() => {
-    console.log("移动窗口到鼠标位置");
-    if (!isExpended) window.ipcRenderer?.send("move-window-to-cursor");
-  }, [isExpended]);
+  const isExpended = useIsExpended();
+  const debugInfo = useExpendedDebugInfo();
+
+  // 统一的窗口移动到鼠标位置管理函数
+  const moveWindowToCursor = useCallback(
+    (reason?: string) => {
+      console.log("请求移动窗口到鼠标位置", reason ? `原因: ${reason}` : "");
+      console.log("目录按钮完全显示状态:", debugInfo.isFullyVisible);
+
+      // 只有当目录按钮没有完全显示时才允许移动窗口
+      if (!debugInfo.isFullyVisible) {
+        console.log("目录按钮未完全显示，执行窗口移动");
+        window.ipcRenderer?.send("move-window-to-cursor");
+      } else {
+        console.log("目录按钮已完全显示，跳过窗口移动");
+      }
+    },
+    [debugInfo.isFullyVisible],
+  );
 
   // 监听窗口最大化/还原状态变化
   useEffect(() => {

@@ -25,7 +25,7 @@ import { getNoteContentById } from "../services/noteService";
 import { sanitizeHtml } from "../utils/textUtils";
 import { MainContentContainer } from "./StyledComponents";
 import KeywordsList from "./KeywordsList";
-import { useIsExpended } from "../hooks";
+import { useWindowControl } from "../hooks/useWindowControl";
 
 const TextHighlighter: React.FC<HighlightProps> = ({
   textContent,
@@ -51,6 +51,9 @@ const TextHighlighter: React.FC<HighlightProps> = ({
     textContent,
     items,
   );
+
+  // 使用统一的窗口控制
+  const { moveWindowToCursor } = useWindowControl();
 
   // 更新editorInstanceRef的函数
   const updateEditorRef = useCallback((editor: any) => {
@@ -213,14 +216,13 @@ const TextHighlighter: React.FC<HighlightProps> = ({
   }, []);
 
   const ref = useRef<ImperativePanelGroupHandle>(null);
-  const isExpended = useIsExpended();
 
   useEffect(() => {
     console.log("检测到关键词变化，数量:", foundKeywords.length);
 
     if (foundKeywords.length > 0) {
       console.log("关键词已计算完成且找到匹配项，通知主进程移动窗口到鼠标位置");
-      if (!isExpended) window.ipcRenderer?.send("move-window-to-cursor");
+      moveWindowToCursor("检测到关键词变化");
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -234,7 +236,7 @@ const TextHighlighter: React.FC<HighlightProps> = ({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [foundKeywords]);
+  }, [foundKeywords, moveWindowToCursor]);
 
   const displayKeywords = useMemo(() => {
     return foundKeywords.length > 0 ? foundKeywords : foundKeywords;
@@ -244,15 +246,14 @@ const TextHighlighter: React.FC<HighlightProps> = ({
     if (displayKeywords.length > 0) {
       console.log("关键词已计算完成，通知主进程移动窗口到鼠标位置");
 
-      if (!isExpended) window.ipcRenderer?.send("move-window-to-cursor");
+      moveWindowToCursor("关键词计算完成");
     }
-  }, [displayKeywords]);
+  }, [displayKeywords, moveWindowToCursor]);
 
   const handleToggleOutline = useCallback(() => {
     setShowOutline(!showOutline);
     console.log("切换目录显示状态:", !showOutline);
-    console.log("目录按钮完全显示状态:", isExpended);
-  }, [showOutline, isExpended]);
+  }, [showOutline]);
 
   return (
     <div

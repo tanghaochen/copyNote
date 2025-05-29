@@ -27,7 +27,7 @@ const KeywordsList: React.FC<KeywordsListProps> = ({
         </KeywordItem>
       ))}
       {/* 调试信息显示 */}
-      {debugInfo && (
+      {/* {debugInfo && (
         <div
           style={{
             padding: "0.5rem",
@@ -48,7 +48,7 @@ const KeywordsList: React.FC<KeywordsListProps> = ({
           )}
           <div>更新时间: {debugInfo.timestamp}</div>
         </div>
-      )}
+      )} */}
       {keywords.length === 0 && (
         <div style={{ padding: "0.5rem", color: "#666" }}>未找到相关关键词</div>
       )}
