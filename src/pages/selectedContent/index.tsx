@@ -38,6 +38,12 @@ import { tagsdb } from "@/database/tagsdb";
 import { useVisibleControl } from "./lib";
 import DocumentOutline from "@/components/documentOutline";
 import { Editor } from "@tiptap/react"; // 添加Editor类型导入
+// 添加命令面板相关导入
+import CommandPalette, {
+  SearchResult,
+  SelectedResult,
+} from "@/components/commandPalette";
+import { useCommandPalette } from "@/hooks/useCommandPalette";
 
 interface HighlightProps {
   textContent: string;
@@ -583,6 +589,16 @@ const App = () => {
   ];
   const [highlightedKeywords, setHighlightedKeywords] = useState(items);
 
+  // 添加命令面板相关状态
+  const [commandPaletteSelectedResult, setCommandPaletteSelectedResult] =
+    useState<SelectedResult | null>(null);
+
+  // 使用命令面板hook
+  const commandPalette = useCommandPalette({
+    enabled: true,
+    shortcut: "ctrl+o",
+  });
+
   const handlePin = () => {
     setIsPinned(!isPinned);
     console.log("设置窗口固定状态:", !isPinned);
@@ -608,6 +624,83 @@ const App = () => {
   const handleToggleContent = () => {
     setShowContent(!showContent);
     console.log("切换获取内容显示状态:", !showContent);
+  };
+
+  // 处理命令面板选择结果变化
+  useEffect(() => {
+    if (commandPaletteSelectedResult) {
+      console.log("命令面板选中结果变化:", commandPaletteSelectedResult);
+
+      switch (commandPaletteSelectedResult.type) {
+        case "vocabulary":
+          // 处理词库选择 - 直接在当前窗口显示内容
+          console.log("打开词库:", commandPaletteSelectedResult);
+          const loadVocabularyContent = async () => {
+            try {
+              const noteItem = await noteContentDB.getContentByNoteId(
+                commandPaletteSelectedResult.id,
+              );
+              // 在剪贴板内容中显示笔记内容
+              setCustomClipBoardContent(
+                `📚 ${
+                  commandPaletteSelectedResult.title
+                }\n\n${DOMPurify.sanitize(noteItem)}`,
+              );
+              // 调整窗口大小以显示内容
+              window.ipcRenderer?.send("resize-window", {
+                width: 940,
+                height: 550,
+              });
+              setIsWindowVisible(true);
+            } catch (error) {
+              console.error("获取词库内容失败:", error);
+              setCustomClipBoardContent(
+                `❌ 获取词库内容失败: ${commandPaletteSelectedResult.title}`,
+              );
+            }
+          };
+          loadVocabularyContent();
+          break;
+
+        case "article":
+          // 处理文章选择 - 直接在当前窗口显示内容
+          console.log("打开文章:", commandPaletteSelectedResult);
+          const loadArticleContent = async () => {
+            try {
+              const noteItem = await noteContentDB.getContentByNoteId(
+                commandPaletteSelectedResult.id,
+              );
+              // 在剪贴板内容中显示笔记内容
+              setCustomClipBoardContent(
+                `📄 ${
+                  commandPaletteSelectedResult.title
+                }\n\n${DOMPurify.sanitize(noteItem)}`,
+              );
+              // 调整窗口大小以显示内容
+              window.ipcRenderer?.send("resize-window", {
+                width: 940,
+                height: 550,
+              });
+              setIsWindowVisible(true);
+            } catch (error) {
+              console.error("获取文章内容失败:", error);
+              setCustomClipBoardContent(
+                `❌ 获取文章内容失败: ${commandPaletteSelectedResult.title}`,
+              );
+            }
+          };
+          loadArticleContent();
+          break;
+
+        default:
+          break;
+      }
+    }
+  }, [commandPaletteSelectedResult]);
+
+  // 处理命令面板选择结果 (保持向后兼容)
+  const handleCommandPaletteSelect = (result: SearchResult) => {
+    console.log("命令面板选择结果 (旧方式):", result);
   };
 
   // 监听窗口最大化/还原状态变化
@@ -825,7 +918,15 @@ const App = () => {
         showContent={showContent}
         onToggleContent={handleToggleContent}
       />
-      {/* <RichTextEditor /> */}
+
+      {/* 命令面板组件 */}
+      <CommandPalette
+        open={commandPalette.isOpen}
+        onClose={commandPalette.close}
+        onSelectResult={handleCommandPaletteSelect}
+        selectedResult={commandPaletteSelectedResult}
+        onSelectedResultChange={setCommandPaletteSelectedResult}
+      />
     </div>
   );
 };
