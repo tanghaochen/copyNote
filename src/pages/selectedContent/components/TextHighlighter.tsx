@@ -25,6 +25,7 @@ import { getNoteContentById } from "../services/noteService";
 import { sanitizeHtml } from "../utils/textUtils";
 import { MainContentContainer } from "./StyledComponents";
 import KeywordsList from "./KeywordsList";
+import { useIsExpended } from "../hooks";
 
 const TextHighlighter: React.FC<HighlightProps> = ({
   textContent,
@@ -144,7 +145,7 @@ const TextHighlighter: React.FC<HighlightProps> = ({
           console.error("DOM聚焦失败", error);
         }
       }
-    }, 300);
+    }, 100);
   }, []);
 
   // 监听noteContent变化以尝试聚焦编辑器
@@ -212,13 +213,14 @@ const TextHighlighter: React.FC<HighlightProps> = ({
   }, []);
 
   const ref = useRef<ImperativePanelGroupHandle>(null);
+  const isExpended = useIsExpended();
 
   useEffect(() => {
     console.log("检测到关键词变化，数量:", foundKeywords.length);
 
     if (foundKeywords.length > 0) {
       console.log("关键词已计算完成且找到匹配项，通知主进程移动窗口到鼠标位置");
-      window.ipcRenderer?.send("move-window-to-cursor");
+      if (!isExpended) window.ipcRenderer?.send("move-window-to-cursor");
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -241,14 +243,16 @@ const TextHighlighter: React.FC<HighlightProps> = ({
   useEffect(() => {
     if (displayKeywords.length > 0) {
       console.log("关键词已计算完成，通知主进程移动窗口到鼠标位置");
-      window.ipcRenderer?.send("move-window-to-cursor");
+
+      if (!isExpended) window.ipcRenderer?.send("move-window-to-cursor");
     }
   }, [displayKeywords]);
 
   const handleToggleOutline = useCallback(() => {
     setShowOutline(!showOutline);
     console.log("切换目录显示状态:", !showOutline);
-  }, [showOutline]);
+    console.log("目录按钮完全显示状态:", isExpended);
+  }, [showOutline, isExpended]);
 
   return (
     <div
@@ -307,6 +311,7 @@ const TextHighlighter: React.FC<HighlightProps> = ({
                       <VisibilityIcon fontSize="small" />
                     </IconButton>
                     <IconButton
+                      id="outline-toggle-button"
                       size="small"
                       onClick={handleToggleOutline}
                       sx={{

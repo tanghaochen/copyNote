@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useIsExpended } from "./useIsExpended";
 
 export const useWindowControl = () => {
   const [isPinned, setIsPinned] = useState(false);
@@ -31,11 +32,12 @@ export const useWindowControl = () => {
     console.log("调整窗口大小:", { width, height });
     window.ipcRenderer?.send("resize-window", { width, height });
   }, []);
+  const isExpended = useIsExpended();
 
   const moveWindowToCursor = useCallback(() => {
     console.log("移动窗口到鼠标位置");
-    window.ipcRenderer?.send("move-window-to-cursor");
-  }, []);
+    if (!isExpended) window.ipcRenderer?.send("move-window-to-cursor");
+  }, [isExpended]);
 
   // 监听窗口最大化/还原状态变化
   useEffect(() => {
