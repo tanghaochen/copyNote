@@ -336,8 +336,12 @@ const TextHighlighter: React.FC<HighlightProps> = ({
               {foundKeywords.length > 0 ? (
                 <RichTextEditor
                   setActiveRichTextEditor={updateEditorRef}
-                  tabItem={{ content: noteContent, value: activeNoteId }}
-                  isShowHeading={false}
+                  tabItem={{
+                    content: noteContent,
+                    value: activeNoteId,
+                    label: activeKeyword || "笔记标题",
+                  }}
+                  isShowHeading={true}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">

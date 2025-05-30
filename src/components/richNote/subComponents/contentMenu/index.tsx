@@ -32,6 +32,11 @@ const MenuBar = ({
   const editorRef = useRef(null);
   const [isCodeJumpDialogOpen, setIsCodeJumpDialogOpen] = useState(false);
 
+  // 监听tabItem.label变化，更新输入框的值
+  useEffect(() => {
+    setInputTitleValue(tabItem.label || "");
+  }, [tabItem.label]);
+
   // 当编辑器实例变化时更新引用
   useEffect(() => {
     if (editor) {
