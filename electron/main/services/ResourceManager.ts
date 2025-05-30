@@ -12,12 +12,18 @@ export class ResourceManager {
 
   constructor() {
     // 根据环境确定基础路径
+    console.log("当前环境:", process.env.NODE_ENV);
+
     if (process.env.NODE_ENV === "development") {
       // 开发环境：使用项目根目录下的 testdata
       this.basePath = path.resolve("testdata");
+      console.log("开发环境 - 基础路径:", this.basePath);
     } else {
-      // 生产环境：使用系统用户数据目录
-      this.basePath = app.getPath("userData");
+      // 生产环境：使用用户文档目录下的 CPNotes 文件夹
+      const documentsPath = app.getPath("documents");
+      this.basePath = path.join(documentsPath, "CPNotes");
+      console.log("生产环境 - Documents路径:", documentsPath);
+      console.log("生产环境 - 基础路径:", this.basePath);
     }
 
     // 设置资源目录结构
@@ -26,6 +32,10 @@ export class ResourceManager {
     this.documentsDir = path.join(this.resourcesDir, "documents");
     this.databaseDir = path.join(this.resourcesDir, "database");
     this.iconsDir = path.join(this.resourcesDir, "icons");
+
+    console.log("资源存储基础路径:", this.basePath);
+    console.log("图片目录:", this.imagesDir);
+    console.log("数据库目录:", this.databaseDir);
 
     this.ensureDirectories();
   }
@@ -40,11 +50,18 @@ export class ResourceManager {
       this.iconsDir,
     ];
 
+    console.log("开始创建目录结构...");
     directories.forEach((dir) => {
+      console.log("检查目录:", dir);
       if (!fs.existsSync(dir)) {
+        console.log("目录不存在，正在创建:", dir);
         fs.mkdirSync(dir, { recursive: true });
+        console.log("目录创建成功:", dir);
+      } else {
+        console.log("目录已存在:", dir);
       }
     });
+    console.log("目录结构创建完成");
   }
 
   // 获取基础路径

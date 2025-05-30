@@ -3,14 +3,15 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "node:url";
+import { ResourceManager } from "./ResourceManager";
 
 export class ImageManager {
-  private userDataPath: string;
+  private resourceManager: ResourceManager;
   private imagesDir: string;
 
   constructor() {
-    this.userDataPath = app.getPath("userData");
-    this.imagesDir = path.join(this.userDataPath, "images");
+    this.resourceManager = new ResourceManager();
+    this.imagesDir = this.resourceManager.getImagesDir();
     this.ensureImageDirectory();
   }
 
