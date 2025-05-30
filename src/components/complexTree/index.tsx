@@ -650,11 +650,11 @@ export default function complexTree({ onSelectedTagChange, setWorksItem }) {
                   // sx={{ fontSize: "0.8rem" }}
                   className="text-gray-500 cursor-pointer more-menu-icon hover:text-gray-700"
                   onClick={(e) => {
-                    e.stopPropagation();
+                    // e.stopPropagation();
                     setContextMenu({
                       mouseX: e.clientX,
                       mouseY: e.clientY,
-                      targetItem: item.index,
+                      targetItem: item.item.index,
                     });
                   }}
                 />
