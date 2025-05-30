@@ -36,7 +36,8 @@ export class TrayManager {
         {
           label: "退出",
           click: () => {
-            app.quit();
+            // 强制退出应用
+            this.forceQuitApp();
           },
         },
       ]);
@@ -70,6 +71,38 @@ export class TrayManager {
     if (this.tray) {
       this.tray.destroy();
       this.tray = null;
+    }
+  }
+
+  private forceQuitApp(): void {
+    // 实现强制退出应用的逻辑
+    console.log("强制退出应用");
+
+    try {
+      // 设置退出标志，防止窗口关闭被阻止
+      (app as any).isQuitting = true;
+
+      // 强制关闭所有窗口
+      const allWindows = BrowserWindow.getAllWindows();
+      allWindows.forEach((window) => {
+        window.destroy();
+      });
+
+      // 销毁托盘
+      this.destroyTray();
+
+      // 尝试正常退出
+      app.quit();
+
+      // 如果正常退出失败，强制退出进程
+      setTimeout(() => {
+        console.log("强制退出进程");
+        process.exit(0);
+      }, 1000);
+    } catch (error) {
+      console.error("退出时发生错误:", error);
+      // 如果发生错误，直接强制退出
+      process.exit(1);
     }
   }
 }

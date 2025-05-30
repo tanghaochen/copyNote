@@ -333,11 +333,29 @@ function setupAppEvents(
   });
 
   // 在关闭应用程序时释放资源
-  app.on("before-quit", () => {
-    // 标记应用正在退出，允许窗口关闭
-    app.isQuitting = true;
-    shortcutManager.unregisterAll();
-    trayManager.destroyTray();
+  app.on("before-quit", (event) => {
+    console.log("应用正在退出，清理资源...");
+
+    try {
+      // 标记应用正在退出，允许窗口关闭
+      app.isQuitting = true;
+
+      // 强制关闭所有窗口
+      const allWindows = BrowserWindow.getAllWindows();
+      allWindows.forEach((window) => {
+        if (window && !window.isDestroyed()) {
+          window.destroy();
+        }
+      });
+
+      // 清理资源
+      shortcutManager.unregisterAll();
+      trayManager.destroyTray();
+
+      console.log("资源清理完成");
+    } catch (error) {
+      console.error("清理资源时发生错误:", error);
+    }
   });
 
   // 为所有创建的窗口添加最大化和还原事件监听
