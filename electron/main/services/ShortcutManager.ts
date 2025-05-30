@@ -44,6 +44,17 @@ export class ShortcutManager {
             return;
           }
 
+          // 检查是否是代码块复制标识
+          if (clipboardContent.text.startsWith("[COPY_NODE]")) {
+            console.log("检测到代码块复制标识，跳过显示窗口");
+            // 移除标识，只保留原始内容到剪贴板
+            const originalContent = clipboardContent.text.substring(
+              "[COPY_NODE]".length,
+            );
+            clipboard.writeText(originalContent);
+            return;
+          }
+
           // 窗口可见性状态
           const isVisible = win2.isVisible();
           console.log("窗口当前可见状态:", isVisible);
@@ -103,6 +114,18 @@ export class ShortcutManager {
     // 再次确认文本有效
     if (!this.hasValidContent(text)) {
       console.log("剪贴板变化内容无效，不触发窗口显示", text);
+      return;
+    }
+
+    // 检查是否是代码块复制标识，如果是则不触发clipboard-update事件
+    if (text.startsWith("[COPY_NODE]")) {
+      console.log("检测到代码块复制标识，跳过clipboard-update事件");
+      // 移除标识，只保留原始内容到剪贴板
+      const originalContent = text.substring("[COPY_NODE]".length);
+      // 更新剪贴板内容，移除标识
+      clipboard.writeText(originalContent);
+      // 更新本地记录，避免下次检测时重复触发
+      this.lastClipboardContent = originalContent;
       return;
     }
 

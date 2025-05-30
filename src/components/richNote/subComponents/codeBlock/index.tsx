@@ -11,14 +11,20 @@ import CheckIcon from "@mui/icons-material/Check";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 
+interface CodeBlockComponentProps {
+  node: { attrs: { language?: string } };
+  updateAttributes: (attrs: { language: string }) => void;
+  editor: any;
+}
+
 export default function CodeBlockComponent({
   node: { attrs },
   updateAttributes,
   editor,
-}) {
-  const [anchorEl, setAnchorEl] = useState(null);
+}: CodeBlockComponentProps) {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [copied, setCopied] = useState(false);
-  const codeRef = useRef(null);
+  const codeRef = useRef<HTMLPreElement>(null);
   const [language, setLanguage] = useState(attrs.language || "plaintext");
   // 支持的语言列表
   const languages = [
@@ -51,13 +57,18 @@ export default function CodeBlockComponent({
   const copyCode = () => {
     if (codeRef.current) {
       const code = codeRef.current.textContent;
-      navigator.clipboard.writeText(code);
+      // 添加标识前缀，让主线程知道这是代码块复制
+      const markedCode = `[COPY_NODE]${code}`;
+      navigator.clipboard.writeText(markedCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
   // 选择语言
-  const handleLanguageChange = (event, newValue) => {
+  const handleLanguageChange = (
+    event: React.SyntheticEvent,
+    newValue: string | null,
+  ) => {
     if (newValue) {
       setLanguage(newValue);
       updateAttributes({ language: newValue });
