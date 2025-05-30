@@ -78,12 +78,8 @@ export const useMainApp = () => {
                 }\n\n${DOMPurify.sanitize(noteItem)}`,
               );
               console.log("命令面板选择词库，调整窗口大小");
-              window.ipcRenderer?.send("resize-window", {
-                width: 940,
-                height: 550,
-              });
+
               setIsWindowVisible(true);
-              setShowContent(true);
             } catch (error) {
               console.error("获取词库内容失败:", error);
               setCustomClipBoardContent(
@@ -107,13 +103,8 @@ export const useMainApp = () => {
                   commandPaletteSelectedResult.title
                 }\n\n${DOMPurify.sanitize(noteItem)}`,
               );
-              console.log("命令面板选择文章，调整窗口大小");
-              window.ipcRenderer?.send("resize-window", {
-                width: 940,
-                height: 550,
-              });
+
               setIsWindowVisible(true);
-              setShowContent(true);
             } catch (error) {
               console.error("获取文章内容失败:", error);
               setCustomClipBoardContent(
