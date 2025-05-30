@@ -2,7 +2,8 @@ import { Editor } from "@tiptap/react";
 
 export interface HighlightItem {
   id: number;
-  title: string;
+  title: string; // 用于检测的关键词（分割后）
+  originalTitle: string; // 用于显示的原始标题（完整带分号）
 }
 
 export interface HighlightProps {

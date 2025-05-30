@@ -26,15 +26,21 @@ export const getWorksList = async (): Promise<HighlightItem[]> => {
             ) {
               // 将标题按分号分割
               const titles = item.title.split(/[；;]/);
-              // 为每个分割后的标题创建新条目，保持相同的ID
+              // 为每个分割后的标题创建新条目，保持相同的ID，originalTitle保存完整标题
               return titles
                 .map((title: string) => ({
                   id: item.id,
-                  title: title.trim(), // 去除可能的空格
+                  title: title.trim(), // 分割后的标题，用于检测
+                  originalTitle: item.title, // 原始完整标题，用于显示
                 }))
                 .filter((item: { title: string }) => item.title); // 过滤掉空标题
             }
-            return item; // 不含分号的直接返回
+            // 不含分号的直接返回，originalTitle等于title
+            return {
+              id: item.id,
+              title: item.title,
+              originalTitle: item.title,
+            };
           },
         );
 

@@ -45,7 +45,7 @@ const TextHighlighter: React.FC<HighlightProps> = ({
   const [activeRichTextEditor, setActiveRichTextEditor] =
     useState<Editor | null>(null);
   const editorInstanceRef = useRef<Editor | null>(null);
-  const [showOutline, setShowOutline] = useState(true);
+  const [showOutline, setShowOutline] = useState(false);
 
   const { highlightedText, foundKeywords, titleToIdMap } = useTextHighlight(
     textContent,
@@ -93,7 +93,16 @@ const TextHighlighter: React.FC<HighlightProps> = ({
     console.log("点击关键词，调整窗口大小");
     window.ipcRenderer?.send("resize-window", { width: 940, height: 550 });
 
-    const id = titleToIdMap.get(keyword);
+    // keyword可能是originalTitle，需要找到对应的分割后的title来获取ID
+    let id = titleToIdMap.get(keyword);
+    if (!id) {
+      // 如果直接获取不到ID，说明keyword是originalTitle，需要找到第一个匹配的title
+      const matchedItem = items.find((item) => item.originalTitle === keyword);
+      if (matchedItem) {
+        id = matchedItem.id;
+      }
+    }
+
     if (!id) return;
 
     try {
@@ -191,7 +200,12 @@ const TextHighlighter: React.FC<HighlightProps> = ({
         if (!id) return;
 
         const highlightText = target.textContent?.replace(/[{}[\]]/g, "") || "";
-        setActiveKeyword(highlightText);
+
+        // 找到对应的原始标题用于显示
+        const matchedItem = items.find((item) => item.title === highlightText);
+        const originalTitle = matchedItem?.originalTitle || highlightText;
+
+        setActiveKeyword(originalTitle);
         setShowPanel(true);
 
         console.log("点击高亮词，调整窗口大小");

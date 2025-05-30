@@ -20,6 +20,15 @@ export const useTextHighlight = (
     return map;
   }, [sortedItems]);
 
+  // 创建从title到originalTitle的映射
+  const titleToOriginalTitleMap = useMemo(() => {
+    const map = new Map<string, string>();
+    sortedItems.forEach((item) => {
+      map.set(item.title, item.originalTitle);
+    });
+    return map;
+  }, [sortedItems]);
+
   const highlightAll = useCallback(() => {
     try {
       // 转义原始文本中的HTML标签
@@ -51,9 +60,12 @@ export const useTextHighlight = (
         const title = match.replace(/[{}[\]]/g, "");
         const id = titleToIdMap.get(title);
 
-        // 添加到找到的关键词列表
-        if (!foundWords.includes(title)) {
-          foundWords.push(title);
+        // 获取原始标题用于显示
+        const originalTitle = titleToOriginalTitleMap.get(title) || title;
+
+        // 添加到找到的关键词列表（使用原始标题，避免重复添加）
+        if (!foundWords.includes(originalTitle)) {
+          foundWords.push(originalTitle);
         }
 
         return id !== undefined
@@ -72,7 +84,7 @@ export const useTextHighlight = (
       setHighlightedText(escapeHtml(textContent));
       setFoundKeywords([]);
     }
-  }, [sortedItems, textContent, titleToIdMap]);
+  }, [sortedItems, textContent, titleToIdMap, titleToOriginalTitleMap]);
 
   useEffect(() => {
     highlightAll();
