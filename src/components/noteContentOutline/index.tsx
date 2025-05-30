@@ -10,6 +10,7 @@ import { IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { preferencesDB } from "@/database/perferencesDB";
 import ReactDOM from "react-dom";
+import ContextMenu from "./ContextMenu";
 
 interface TabItem {
   id: string;
@@ -45,6 +46,15 @@ export default function BasicTabs({
   const [dragOverPosition, setDragOverPosition] = useState<
     "left" | "right" | null
   >(null);
+
+  // 右键菜单相关状态
+  const [contextMenu, setContextMenu] = React.useState<{
+    mouseX: number;
+    mouseY: number;
+    tabIndex: number;
+  } | null>(null);
+  const [contextMenuAnchorEl, setContextMenuAnchorEl] =
+    React.useState<HTMLElement | null>(null);
 
   // 同步当前选中标签
   useEffect(() => {
@@ -97,7 +107,7 @@ export default function BasicTabs({
         if (!openedTabs?.length || !isMounted) return;
 
         const openedTabsData = await Promise.all(
-          openedTabs.map(async (tab) => ({
+          openedTabs.map(async (tab: any) => ({
             ...tab,
             content: await noteContentDB.getContentByNoteId(tab.id),
           })),
@@ -169,11 +179,93 @@ export default function BasicTabs({
   }, [worksItem]);
 
   // 关闭标签页
-  const handleCloseTab = (tabValue, e) => {
+  const handleCloseTab = (tabValue: any, e: any) => {
     e.stopPropagation();
     setTabs((prev) => {
       const newTabs = prev.filter((t) => t.value !== tabValue);
       return newTabs;
+    });
+  };
+
+  // 右键菜单处理
+  const handleContextMenu = (event: React.MouseEvent, index: number) => {
+    event.preventDefault();
+    setContextMenuAnchorEl(event.currentTarget as HTMLElement);
+    setContextMenu({
+      mouseX: event.clientX,
+      mouseY: event.clientY,
+      tabIndex: index,
+    });
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenu(null);
+    setContextMenuAnchorEl(null);
+  };
+
+  // 关闭所有标签页
+  const handleCloseAll = () => {
+    setTabs([]);
+    setSelectedIndex(0);
+    setActiveTabsItem(null);
+    setCurrentTab(null);
+    // 更新数据库
+    preferencesDB.updatePreferences({
+      openedTabs: [],
+      selectedTab: null,
+      selectedIndex: 0,
+    });
+  };
+
+  // 关闭其他标签页
+  const handleCloseOthers = () => {
+    if (contextMenu === null) return;
+
+    const targetIndex = contextMenu.tabIndex;
+    const targetTab = tabs[targetIndex];
+
+    setTabs([targetTab]);
+    setSelectedIndex(0);
+    setActiveTabsItem(targetTab);
+    setCurrentTab(targetTab);
+
+    // 更新数据库
+    preferencesDB.updatePreferences({
+      openedTabs: [{ ...targetTab, content: "" }],
+      selectedTab: targetTab,
+      selectedIndex: 0,
+    });
+  };
+
+  // 关闭右边所有标签页
+  const handleCloseRight = () => {
+    if (contextMenu === null) return;
+
+    const targetIndex = contextMenu.tabIndex;
+    const newTabs = tabs.slice(0, targetIndex + 1);
+
+    setTabs(newTabs);
+
+    // 如果当前选中的标签被关闭了，选中最后一个标签
+    if (selectedIndex > targetIndex) {
+      setSelectedIndex(targetIndex);
+      setActiveTabsItem(newTabs[targetIndex]);
+      setCurrentTab(newTabs[targetIndex]);
+    }
+
+    // 更新数据库
+    const noContentTabs = newTabs.map((tab: any) => ({
+      ...tab,
+      content: "",
+    }));
+
+    preferencesDB.updatePreferences({
+      openedTabs: noContentTabs,
+      selectedTab:
+        selectedIndex > targetIndex
+          ? newTabs[targetIndex]
+          : tabs[selectedIndex],
+      selectedIndex: selectedIndex > targetIndex ? targetIndex : selectedIndex,
     });
   };
 
@@ -248,6 +340,7 @@ export default function BasicTabs({
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, index)}
+                  onContextMenu={(e) => handleContextMenu(e, index)}
                 >
                   <span>{tab.label || "未命名"}</span>
                   {/* 关闭按钮: 默认隐藏，hover或active时显示 */}
@@ -281,7 +374,6 @@ export default function BasicTabs({
                 activeTabsItem={activeTabsItem}
                 tabItem={tab}
                 setTabs={setTabs}
-                setActiveTabsItem={setActiveTabsItem}
                 setWorksList={setWorksList}
                 setCurrentEditor={setCurrentEditor}
                 setActiveRichTextEditor={setActiveRichTextEditor}
@@ -290,6 +382,20 @@ export default function BasicTabs({
           ))}
         </div>
       </Tabs>
+
+      {/* 右键菜单 */}
+      <ContextMenu
+        anchorEl={contextMenuAnchorEl}
+        open={Boolean(contextMenu)}
+        onClose={handleCloseContextMenu}
+        onCloseAll={handleCloseAll}
+        onCloseOthers={handleCloseOthers}
+        onCloseRight={handleCloseRight}
+        hasOtherTabs={tabs.length > 1}
+        hasRightTabs={
+          contextMenu ? contextMenu.tabIndex < tabs.length - 1 : false
+        }
+      />
     </div>
   );
 }
