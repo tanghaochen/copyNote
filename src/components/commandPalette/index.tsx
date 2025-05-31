@@ -367,13 +367,37 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
     query: string,
   ): Promise<SearchResult[]> => {
     try {
-      const allNotes = await noteContentDB.getAllContents(); // 返回 { note_id: number, content: string }[]
-      const noteResults: SearchResult[] = allNotes.map((note: any) => ({
-        id: note.note_id, // 使用 note_id 字段
-        title: `笔记 ${note.note_id}`, // 由于只有 note_id 和 content，临时生成标题
-        content: note.content,
-        type: "article" as const,
-      }));
+      // 直接查询所有有纯文本内容的笔记，用于模糊搜索
+      const result = await noteContentDB.query<
+        Array<{
+          note_id: number;
+          title: string;
+          plain_text: string;
+        }>
+      >(
+        `SELECT nc.note_id, nm.title, nc.plain_text 
+         FROM notes_content nc
+         LEFT JOIN notes_metadata nm ON nc.note_id = nm.id
+         WHERE nc.plain_text IS NOT NULL 
+           AND nc.plain_text != '' 
+         ORDER BY nc.note_id 
+         LIMIT 200`,
+        [],
+      );
+
+      if (!result || result.length === 0) {
+        return [];
+      }
+
+      // 转换为标准格式，使用 plain_text 作为搜索内容
+      const noteResults: SearchResult[] = result
+        .filter((item) => item.plain_text && item.plain_text.trim() !== "")
+        .map((item) => ({
+          id: item.note_id,
+          title: item.title || `笔记 ${item.note_id}`,
+          content: item.plain_text, // 使用纯文本内容
+          type: "article" as const,
+        }));
 
       // 使用 Fuse.js 进行模糊搜索
       const fuse = new Fuse(noteResults, {
