@@ -12,6 +12,8 @@ import {
   IconButton,
   Divider,
   CircularProgress,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import CloseIcon from "@mui/icons-material/Close";
@@ -20,6 +22,7 @@ import BookIcon from "@mui/icons-material/Book";
 import LabelIcon from "@mui/icons-material/Label";
 import ArticleIcon from "@mui/icons-material/Article";
 import { styled } from "@mui/system";
+import Fuse from "fuse.js";
 import { worksListDB } from "@/database/worksLists";
 import { tagsdb } from "@/database/tagsdb";
 import { noteContentDB } from "@/database/noteContentDB";
@@ -120,6 +123,22 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [useFuse, setUseFuse] = useState(true);
+  const [useFuzzy, setUseFuzzy] = useState(false); // 默认关闭模糊搜索
+
+  // Fuse.js 配置
+  const fuseOptions = {
+    keys: [
+      { name: "title", weight: 0.7 },
+      { name: "content", weight: 0.3 },
+      { name: "category", weight: 0.2 },
+    ],
+    threshold: 0.4, // 匹配阈值，越小越严格
+    distance: 100, // 距离参数
+    includeScore: true,
+    includeMatches: true,
+    minMatchCharLength: 1,
+  };
 
   // 高亮搜索关键词
   const highlightMatch = (text: string, query: string) => {
@@ -273,34 +292,192 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
     return preview;
   };
 
-  // 执行搜索
-  const performSearch = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    setLoading(true);
+  // 模糊搜索词库
+  const fuzzySearchVocabulary = async (
+    query: string,
+  ): Promise<SearchResult[]> => {
     try {
-      const [vocabularyResults, tagResults, articleResults] = await Promise.all(
-        [searchVocabulary(query), searchTags(query), searchArticles(query)],
-      );
+      const tags = await tagsdb.getTagsByCategory(1);
+      let allItems: SearchResult[] = [];
 
-      const allResults = [
-        ...vocabularyResults,
-        ...tagResults,
-        ...articleResults,
-      ];
+      for (const tag of tags) {
+        const metadata = await worksListDB.getMetadataByTagId(tag.id);
+        if (metadata && metadata.length > 0) {
+          const processedResults = metadata.flatMap((item: any) => {
+            if (
+              item.title &&
+              (item.title.includes("；") || item.title.includes(";"))
+            ) {
+              const titles = item.title.split(/[；;]/);
+              return titles.map((title: string) => ({
+                id: item.id,
+                title: title.trim(),
+                type: "vocabulary" as const,
+                category: tag.name,
+              }));
+            }
+            return {
+              id: item.id,
+              title: item.title,
+              type: "vocabulary" as const,
+              category: tag.name,
+            };
+          });
 
-      setSearchResults(allResults);
-      setSelectedIndex(0);
+          allItems = allItems.concat(processedResults);
+        }
+      }
+
+      // 使用 Fuse.js 进行模糊搜索
+      const fuse = new Fuse(allItems, fuseOptions);
+      const fuseResults = fuse.search(query);
+
+      return fuseResults.map((result) => result.item);
     } catch (error) {
-      console.error("搜索失败:", error);
-      setSearchResults([]);
-    } finally {
-      setLoading(false);
+      console.error("模糊搜索词库失败:", error);
+      return [];
     }
-  }, []);
+  };
+
+  // 模糊搜索标签
+  const fuzzySearchTags = async (query: string): Promise<SearchResult[]> => {
+    try {
+      const allTags = await tagsdb.getAllTags();
+      const tagResults: SearchResult[] = allTags.map((tag: any) => ({
+        id: tag.id,
+        title: tag.name,
+        type: "tag" as const,
+        content: tag.description || "",
+        tags_id: tag.id,
+      }));
+
+      // 使用 Fuse.js 进行模糊搜索
+      const fuse = new Fuse(tagResults, fuseOptions);
+      const fuseResults = fuse.search(query);
+
+      return fuseResults.map((result) => result.item as SearchResult);
+    } catch (error) {
+      console.error("模糊搜索标签失败:", error);
+      return [];
+    }
+  };
+
+  // 模糊搜索文章内容
+  const fuzzySearchArticles = async (
+    query: string,
+  ): Promise<SearchResult[]> => {
+    try {
+      const allNotes = await noteContentDB.getAllContents(); // 返回 { note_id: number, content: string }[]
+      const noteResults: SearchResult[] = allNotes.map((note: any) => ({
+        id: note.note_id, // 使用 note_id 字段
+        title: `笔记 ${note.note_id}`, // 由于只有 note_id 和 content，临时生成标题
+        content: note.content,
+        type: "article" as const,
+      }));
+
+      // 使用 Fuse.js 进行模糊搜索
+      const fuse = new Fuse(noteResults, {
+        ...fuseOptions,
+        threshold: 0.6, // 文章内容搜索使用更宽松的阈值
+      });
+      const fuseResults = fuse.search(query);
+
+      return fuseResults.map((result) => ({
+        ...(result.item as SearchResult),
+        content: generateContentPreview(
+          (result.item as SearchResult).content || "",
+          query,
+        ),
+      }));
+    } catch (error) {
+      console.error("模糊搜索文章失败:", error);
+      return [];
+    }
+  };
+
+  // 高亮模糊搜索结果
+  const highlightFuzzyMatch = (text: string, query: string) => {
+    if (!query.trim() || !text) return text;
+
+    // 使用 Fuse.js 进行匹配高亮
+    const fuse = new Fuse([{ text }], {
+      keys: ["text"],
+      includeMatches: true,
+      threshold: 0.6,
+    });
+
+    const results = fuse.search(query);
+    if (results.length === 0 || !results[0].matches) {
+      return text;
+    }
+
+    const matches = results[0].matches[0];
+    if (!matches.indices) return text;
+
+    // 根据匹配索引进行高亮
+    let highlightedText = text;
+    let offset = 0;
+
+    matches.indices.forEach(([start, end]) => {
+      const before = highlightedText.slice(0, start + offset);
+      const match = highlightedText.slice(start + offset, end + 1 + offset);
+      const after = highlightedText.slice(end + 1 + offset);
+
+      const highlightElement = `<span class="fuzzy-highlight">${match}</span>`;
+      highlightedText = before + highlightElement + after;
+      offset += highlightElement.length - match.length;
+    });
+
+    return <span dangerouslySetInnerHTML={{ __html: highlightedText }} />;
+  };
+
+  // 执行搜索
+  const performSearch = useCallback(
+    async (query: string) => {
+      if (!query.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        let vocabularyResults: SearchResult[];
+        let tagResults: SearchResult[];
+        let articleResults: SearchResult[];
+
+        if (useFuzzy) {
+          // 使用模糊搜索
+          [vocabularyResults, tagResults, articleResults] = await Promise.all([
+            fuzzySearchVocabulary(query),
+            fuzzySearchTags(query),
+            fuzzySearchArticles(query),
+          ]);
+        } else {
+          // 使用精确搜索
+          [vocabularyResults, tagResults, articleResults] = await Promise.all([
+            searchVocabulary(query),
+            searchTags(query),
+            searchArticles(query),
+          ]);
+        }
+
+        const allResults = [
+          ...vocabularyResults,
+          ...tagResults,
+          ...articleResults,
+        ];
+
+        setSearchResults(allResults);
+        setSelectedIndex(0);
+      } catch (error) {
+        console.error("搜索失败:", error);
+        setSearchResults([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [useFuzzy],
+  );
 
   // 防抖搜索
   useEffect(() => {
@@ -309,7 +486,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, performSearch]);
+  }, [searchQuery, performSearch, useFuzzy]);
 
   // 键盘导航
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -447,6 +624,38 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
               <CloseIcon fontSize="small" />
             </IconButton>
           </Box>
+
+          {/* 模糊搜索开关 */}
+          <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={useFuzzy}
+                  onChange={(e) => setUseFuzzy(e.target.checked)}
+                  size="small"
+                  sx={{
+                    py: 0,
+                    color: "#6b7280",
+                    "&.Mui-checked": {
+                      color: "#0ea5e9",
+                    },
+                  }}
+                />
+              }
+              label={
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "#6b7280",
+                    fontSize: "13px",
+                    userSelect: "none",
+                  }}
+                >
+                  模糊搜索 (支持拼写错误和近似匹配)
+                </Typography>
+              }
+            />
+          </Box>
         </SearchContainer>
 
         <ResultsContainer>
@@ -508,7 +717,9 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                           >
                             {getTypeIcon(result.type)}
                             <span>
-                              {highlightMatch(result.title, searchQuery)}
+                              {useFuzzy
+                                ? highlightFuzzyMatch(result.title, searchQuery)
+                                : highlightMatch(result.title, searchQuery)}
                             </span>
                             {result.category && (
                               <Chip
@@ -543,7 +754,12 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                                 }),
                               }}
                             >
-                              {highlightMatch(result.content, searchQuery)}
+                              {useFuzzy
+                                ? highlightFuzzyMatch(
+                                    result.content,
+                                    searchQuery,
+                                  )
+                                : highlightMatch(result.content, searchQuery)}
                             </Typography>
                           )
                         }
