@@ -46,7 +46,7 @@ const App = () => {
       />
 
       {/* 高亮组件 */}
-      <div style={{ flex: 1, overflow: "hidden" }}>
+      <div className="flex-1 overflow-hidden relative">
         <TextHighlighter
           textContent={mainApp.customClipBoardContent}
           items={mainApp.highlightedKeywords}

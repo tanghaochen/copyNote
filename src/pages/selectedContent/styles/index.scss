@@ -128,33 +128,6 @@
     }
 
     // 只有内容区域可以滚动
-    > div:last-child {
-      flex: 1;
-      padding: 16px;
-      overflow-y: auto; // 允许内容区域垂直滚动
-      line-height: 1.6;
-      color: #424242;
-      font-size: 14px;
-
-      // 自定义滚动条
-      &::-webkit-scrollbar {
-        width: 6px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 3px;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 3px;
-      }
-
-      &::-webkit-scrollbar-thumb:hover {
-        background: #a8a8a8;
-      }
-    }
   }
 
   // 高亮样式
