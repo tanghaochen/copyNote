@@ -1,4 +1,4 @@
-import { BrowserWindow, screen, session, shell } from "electron";
+import { BrowserWindow, screen, session, shell, Menu } from "electron";
 import path from "path";
 // 修改导入方式，处理CommonJS和ESM兼容性问题
 // import lodash from "lodash";
@@ -47,6 +47,10 @@ export class WindowManager {
         experimentalFeatures: true,
       },
     });
+
+    // 完全禁用菜单栏和 Alt 键触发的菜单
+    Menu.setApplicationMenu(null);
+    this.win.setMenuBarVisibility(false);
 
     // 如果有外部显示器，设置全屏
     if (externalDisplay) {

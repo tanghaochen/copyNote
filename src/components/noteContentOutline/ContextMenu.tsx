@@ -6,6 +6,7 @@ interface ContextMenuProps {
   anchorEl: HTMLElement | null;
   open: boolean;
   onClose: () => void;
+  onCloseCurrent: () => void;
   onCloseAll: () => void;
   onCloseOthers: () => void;
   onCloseRight: () => void;
@@ -17,6 +18,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   anchorEl,
   open,
   onClose,
+  onCloseCurrent,
   onCloseAll,
   onCloseOthers,
   onCloseRight,
@@ -45,6 +47,29 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
         },
       }}
     >
+      <MenuItem
+        onClick={() => {
+          onCloseCurrent();
+          onClose();
+        }}
+        sx={{
+          fontSize: "14px",
+          padding: "8px 16px",
+          display: "flex",
+          justifyContent: "space-between",
+          "&:hover": {
+            backgroundColor: "#f5f5f5",
+          },
+        }}
+      >
+        <span>关闭当前</span>
+        <span style={{ fontSize: "12px", color: "#666", marginLeft: "16px" }}>
+          Ctrl+W
+        </span>
+      </MenuItem>
+
+      <Divider />
+
       <MenuItem
         onClick={() => {
           onCloseAll();

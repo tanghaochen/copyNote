@@ -56,6 +56,76 @@ export default function BasicTabs({
   const [contextMenuAnchorEl, setContextMenuAnchorEl] =
     React.useState<HTMLElement | null>(null);
 
+  // 增强的关闭标签页功能 - 支持快捷键
+  const handleCloseTabWithNavigation = React.useCallback(
+    (tabValue?: string, event?: any) => {
+      if (event) {
+        event.stopPropagation();
+      }
+
+      // 如果没有指定要关闭的标签，关闭当前标签
+      const targetTabValue = tabValue || tabs[selectedIndex]?.value;
+      if (!targetTabValue) return;
+
+      const currentTabIndex = tabs.findIndex((t) => t.value === targetTabValue);
+      if (currentTabIndex === -1) return;
+
+      const newTabs = tabs.filter((t) => t.value !== targetTabValue);
+
+      // 计算新的选中索引
+      let newSelectedIndex = 0;
+      if (newTabs.length > 0) {
+        if (currentTabIndex === selectedIndex) {
+          // 如果关闭的是当前标签，选择下一个标签，如果没有下一个则选择前一个
+          if (currentTabIndex < newTabs.length) {
+            newSelectedIndex = currentTabIndex; // 下一个标签
+          } else {
+            newSelectedIndex = newTabs.length - 1; // 最后一个标签
+          }
+        } else if (currentTabIndex < selectedIndex) {
+          // 如果关闭的标签在当前标签之前，当前索引需要减1
+          newSelectedIndex = selectedIndex - 1;
+        } else {
+          // 如果关闭的标签在当前标签之后，当前索引不变
+          newSelectedIndex = selectedIndex;
+        }
+      }
+
+      setTabs(newTabs);
+      setSelectedIndex(newSelectedIndex);
+
+      // 更新当前活动标签
+      if (newTabs.length > 0) {
+        const newActiveTab = newTabs[newSelectedIndex];
+        setActiveTabsItem(newActiveTab);
+        setCurrentTab(newActiveTab);
+      } else {
+        setActiveTabsItem(null);
+        setCurrentTab(null);
+      }
+
+      // 更新数据库
+      const noContentTabs = newTabs.map((tab) => ({
+        ...tab,
+        content: "",
+      }));
+
+      preferencesDB.updatePreferences({
+        openedTabs: noContentTabs,
+        selectedTab: newTabs.length > 0 ? newTabs[newSelectedIndex] : null,
+        selectedIndex: newSelectedIndex,
+      });
+    },
+    [
+      tabs,
+      selectedIndex,
+      setTabs,
+      setSelectedIndex,
+      setActiveTabsItem,
+      setCurrentTab,
+    ],
+  );
+
   // 同步当前选中标签
   useEffect(() => {
     if (tabs.length > 0 && selectedIndex >= tabs.length) {
@@ -136,6 +206,29 @@ export default function BasicTabs({
       isMounted = false;
     };
   }, []);
+
+  // 监听键盘事件，实现 Ctrl+W 快捷键
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // 检查是否按下 Ctrl+W (Windows/Linux) 或 Cmd+W (Mac)
+      if ((event.ctrlKey || event.metaKey) && event.key === "w") {
+        event.preventDefault(); // 阻止浏览器默认行为
+
+        // 如果有打开的标签页，关闭当前标签
+        if (tabs.length > 0) {
+          handleCloseTabWithNavigation();
+        }
+      }
+    };
+
+    // 添加事件监听器
+    document.addEventListener("keydown", handleKeyDown);
+
+    // 清理事件监听器
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [tabs, selectedIndex, handleCloseTabWithNavigation]); // 依赖于 tabs 和 selectedIndex
 
   // 点击词条 添加新标签页
   useEffect(() => {
@@ -351,7 +444,7 @@ export default function BasicTabs({
                     } group-hover:visible`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleCloseTab(tab.value, e);
+                      handleCloseTabWithNavigation(tab.value, e);
                     }}
                     sx={{
                       p: 0,
@@ -385,18 +478,26 @@ export default function BasicTabs({
       </Tabs>
 
       {/* 右键菜单 */}
-      <ContextMenu
-        anchorEl={contextMenuAnchorEl}
-        open={Boolean(contextMenu)}
-        onClose={handleCloseContextMenu}
-        onCloseAll={handleCloseAll}
-        onCloseOthers={handleCloseOthers}
-        onCloseRight={handleCloseRight}
-        hasOtherTabs={tabs.length > 1}
-        hasRightTabs={
-          contextMenu ? contextMenu.tabIndex < tabs.length - 1 : false
-        }
-      />
+      {contextMenu && (
+        <ContextMenu
+          anchorEl={contextMenuAnchorEl}
+          open={Boolean(contextMenu)}
+          onClose={handleCloseContextMenu}
+          onCloseCurrent={() => {
+            if (contextMenu !== null) {
+              const targetTab = tabs[contextMenu.tabIndex];
+              handleCloseTabWithNavigation(targetTab.value);
+            }
+          }}
+          onCloseAll={handleCloseAll}
+          onCloseOthers={handleCloseOthers}
+          onCloseRight={handleCloseRight}
+          hasOtherTabs={tabs.length > 1}
+          hasRightTabs={
+            contextMenu ? contextMenu.tabIndex < tabs.length - 1 : false
+          }
+        />
+      )}
     </div>
   );
 }
