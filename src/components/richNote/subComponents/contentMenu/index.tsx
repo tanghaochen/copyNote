@@ -206,7 +206,7 @@ const MenuBar: React.FC<MenuBarProps> = ({
     setPopperOpen(false);
   };
 
-  // 处理点击外部区域
+  // 处理点击外部区域 - 立即关闭
   const handleClickAway = (event: MouseEvent | TouchEvent) => {
     console.log("点击外部区域，隐藏Popper");
     clearHideTimer();
@@ -278,6 +278,12 @@ const MenuBar: React.FC<MenuBarProps> = ({
       e.preventDefault();
       e.stopPropagation();
 
+      // 特殊处理代码跳转功能
+      if (toggleFunName === "openCodeJumpDialog") {
+        setIsCodeJumpDialogOpen(true);
+        return;
+      }
+
       editor.commands.focus();
 
       if (typeof (editor.commands as any)[toggleFun] === "function") {
@@ -322,11 +328,19 @@ const MenuBar: React.FC<MenuBarProps> = ({
     const handleClick = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
+
+      // 特殊处理代码跳转功能
+      if (toggleFunName === "openCodeJumpDialog") {
+        setIsCodeJumpDialogOpen(true);
+        return;
+      }
+
       editor.commands.focus();
       if (typeof (editor.commands as any)[toggleFun] === "function") {
         (editor.commands as any)[toggleFun](toggleFunParam || undefined);
       }
-      setPopperOpen(false);
+      // 点击按钮后不自动关闭Popper，保持打开状态
+      // 只有鼠标离开或点击外部区域才会关闭
     };
 
     return (
@@ -442,15 +456,12 @@ const MenuBar: React.FC<MenuBarProps> = ({
 
         <TpTable editor={editor} />
 
-        <IconButton
-          onClick={() => setIsCodeJumpDialogOpen(true)}
-          size="small"
-          title="代码跳转"
+        <CommonBtn
+          extType="codeJump"
+          iconName="code"
+          toggleFunName="openCodeJumpDialog"
           className="menu-button"
-          data-button-type="code"
-        >
-          <CodeIcon />
-        </IconButton>
+        />
       </div>
 
       {/* 隐藏菜单的 Popper */}
@@ -492,24 +503,6 @@ const MenuBar: React.FC<MenuBarProps> = ({
                   return renderHiddenMenuItem(item);
                 } else if (item.type === "divider") {
                   return;
-                } else if (item.type === "code") {
-                  return (
-                    <IconButton
-                      key={item.index}
-                      size="small"
-                      title="代码跳转"
-                      style={{
-                        margin: "0 2px",
-                        padding: "4px",
-                      }}
-                      onClick={() => {
-                        console.log("点击代码按钮");
-                        setPopperOpen(false);
-                      }}
-                    >
-                      <CodeIcon />
-                    </IconButton>
-                  );
                 }
                 return null;
               })}
