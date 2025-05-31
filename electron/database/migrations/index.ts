@@ -101,6 +101,8 @@ export const migrations: Migration[] = [
           note_id    INTEGER PRIMARY KEY,
           content    TEXT NOT NULL,
           plain_text TEXT NOT NULL DEFAULT '',
+          headings_text TEXT NOT NULL DEFAULT '', -- 用于搜集文章内所有标题h1~h6，作为title的补充搜索
+          enable_heading_search BOOLEAN NOT NULL DEFAULT 1, -- 标题搜索设置，false跳过标题搜索，true默认值允许搜索
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (note_id) REFERENCES notes_metadata(id)
         );
@@ -119,6 +121,7 @@ export const migrations: Migration[] = [
           title,
           content,
           plain_text,
+          headings_text, -- 添加标题文本到全文搜索索引
           content_rowid='note_id'
         );
 
