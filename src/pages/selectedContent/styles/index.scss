@@ -88,6 +88,23 @@
   height: 100%;
 
   .content-preview {
+    // 为目录跳转添加滚动边距，防止被WindowControlBar遮挡
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    [role="heading"],
+    .ProseMirror h1,
+    .ProseMirror h2,
+    .ProseMirror h3,
+    .ProseMirror h4,
+    .ProseMirror h5,
+    .ProseMirror h6 {
+      scroll-margin-top: 3rem; // 确保跳转时不被控制栏遮挡
+    }
+
     flex: 1;
     min-width: 300px;
     background: #fff;

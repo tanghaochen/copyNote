@@ -182,6 +182,7 @@
     line-height: var(--heading-line-height);
     margin-top: var(--heading-margin-top);
     text-wrap: pretty;
+    scroll-margin-top: 3rem;
 
     &:is(h1, h2) {
       --heading-margin-top: 3.5rem;
@@ -290,11 +291,11 @@
 }
 
 /* 确保编辑区域在小屏幕上也有合适的宽度 */
-@media (max-width: 1200px) {
-  .tiptap {
-    width: 85%;
-  }
-}
+// @media (max-width: 1200px) {
+//   .tiptap {
+//     width: 85%;
+//   }
+// }
 
 @media (max-width: 768px) {
   .tiptap {

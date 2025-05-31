@@ -446,6 +446,12 @@ export default function DocumentOutline({
       observerRef.current.disconnect();
     }
 
+    // 动态获取WindowControlBar的高度
+    const controlBar = document.querySelector(
+      ".noteHightLightRoot > div:first-child",
+    ) as HTMLElement;
+    const controlBarHeight = controlBar ? controlBar.offsetHeight : 24;
+
     // 创建新的观察者
     const observer = new IntersectionObserver(
       (entries) => {
@@ -468,9 +474,11 @@ export default function DocumentOutline({
       {
         root:
           document.querySelector(".ProseMirror-wrapper") ||
-          document.querySelector(".tiptap-container"),
+          document.querySelector(".tiptap-container") ||
+          document.querySelector(".tiptap"),
         threshold: [0, 0.25, 0.5, 0.75, 1],
-        rootMargin: "-10% 0px -10% 0px",
+        // 调整rootMargin考虑WindowControlBar的高度
+        rootMargin: `-${controlBarHeight + 16}px 0px -10% 0px`,
       },
     );
 
@@ -521,6 +529,44 @@ export default function DocumentOutline({
     }
   };
 
+  // 添加精确的滚动到元素的函数
+  const scrollToElementWithOffset = (elementId: string) => {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    // 动态获取WindowControlBar的实际高度
+    const controlBar = document.querySelector(
+      ".noteHightLightRoot > div:first-child",
+    ) as HTMLElement;
+    const controlBarHeight = controlBar ? controlBar.offsetHeight : 24; // 默认24px
+
+    // 查找滚动容器
+    const scrollContainer = document.querySelector(".tiptap") as HTMLElement;
+
+    if (scrollContainer) {
+      // 计算元素相对于滚动容器的位置
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+
+      // 计算目标滚动位置，添加适当的偏移量
+      const targetScrollTop =
+        scrollContainer.scrollTop +
+        (elementRect.top - containerRect.top) -
+        controlBarHeight -
+        16; // 16px额外间距
+
+      // 平滑滚动到目标位置
+      scrollContainer.scrollTo({
+        top: Math.max(0, targetScrollTop), // 确保不滚动到负数位置
+        behavior: "smooth",
+      });
+    } else {
+      // 备用方案：使用传统的scrollIntoView但添加CSS偏移
+      element.style.scrollMarginTop = `${controlBarHeight + 16}px`;
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   // 点击目录项滚动到对应位置
   const handleSelectItems = (items: TreeItemIndex[]) => {
     const stringItems = items.map((item) => item.toString());
@@ -528,10 +574,7 @@ export default function DocumentOutline({
 
     // 如果选择了非根节点，滚动到对应位置
     if (items.length === 1 && items[0] !== "root") {
-      const element = document.getElementById(items[0].toString());
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      scrollToElementWithOffset(items[0].toString());
     }
   };
 
@@ -548,10 +591,7 @@ export default function DocumentOutline({
     setActiveHeading(item.index as string);
 
     // 滚动到对应元素
-    const element = document.getElementById(item.index as string);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    scrollToElementWithOffset(item.index as string);
   };
 
   return (
