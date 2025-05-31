@@ -59,6 +59,27 @@ const MenuBar: React.FC<MenuBarProps> = ({
   const [popperOpen, setPopperOpen] = useState(false);
   const [popperAnchor, setPopperAnchor] = useState<HTMLElement | null>(null);
 
+  // 添加定时器引用来管理Popper的隐藏
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 清除隐藏定时器
+  const clearHideTimer = () => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+
+  // 设置延迟隐藏
+  const setHideTimer = (delay: number = 300) => {
+    clearHideTimer();
+    hideTimerRef.current = setTimeout(() => {
+      console.log("定时器触发，隐藏Popper");
+      setPopperOpen(false);
+      hideTimerRef.current = null;
+    }, delay);
+  };
+
   useEffect(() => {
     setInputTitleValue(tabItem?.label || "");
   }, [tabItem?.label]);
@@ -147,9 +168,11 @@ const MenuBar: React.FC<MenuBarProps> = ({
   const handleMenuMouseEnter = () => {
     console.log("鼠标进入菜单区域:", {
       enableResponsiveLayout,
-      showMoreButton,
       hiddenItemsLength: hiddenItems.length,
     });
+
+    // 清除任何待执行的隐藏定时器
+    clearHideTimer();
 
     if (enableResponsiveLayout && hiddenItems.length > 0) {
       console.log("显示Popper菜单");
@@ -162,32 +185,31 @@ const MenuBar: React.FC<MenuBarProps> = ({
   const handleMenuMouseLeave = (e: React.MouseEvent) => {
     console.log("鼠标离开菜单区域");
 
-    // 检查是否移动到Popper区域
-    const relatedTarget = e.relatedTarget as HTMLElement;
-    if (relatedTarget && relatedTarget.closest("[data-popper-menu]")) {
-      console.log("鼠标移动到Popper，保持显示");
-      return;
-    }
-
     // 延迟隐藏，给用户时间移动到Popper
-    setTimeout(() => {
-      setPopperOpen(false);
-    }, 150);
+    if (popperOpen) {
+      console.log("设置延迟隐藏定时器");
+      setHideTimer(300); // 增加到300ms给用户更多时间
+    }
   };
 
   // 处理Popper鼠标进入
   const handlePopperMouseEnter = () => {
-    console.log("鼠标进入Popper");
+    console.log("鼠标进入Popper，清除隐藏定时器");
+    clearHideTimer();
     setPopperOpen(true);
   };
 
   // 处理Popper鼠标离开
   const handlePopperMouseLeave = () => {
-    console.log("鼠标离开Popper");
+    console.log("鼠标离开Popper，立即隐藏");
+    clearHideTimer();
     setPopperOpen(false);
   };
 
-  const handleClickAway = () => {
+  // 处理点击外部区域
+  const handleClickAway = (event: MouseEvent | TouchEvent) => {
+    console.log("点击外部区域，隐藏Popper");
+    clearHideTimer();
     setPopperOpen(false);
   };
 
@@ -200,6 +222,41 @@ const MenuBar: React.FC<MenuBarProps> = ({
       enableResponsiveLayout,
     });
   }, [showMoreButton, hiddenItems.length, popperOpen, enableResponsiveLayout]);
+
+  // 监听隐藏项变化，如果鼠标仍在菜单区域且有隐藏项，保持显示Popper
+  useEffect(() => {
+    if (
+      enableResponsiveLayout &&
+      hiddenItems.length > 0 &&
+      menuContainerRef.current
+    ) {
+      // 检查鼠标是否仍在菜单区域内
+      const checkMousePosition = () => {
+        if (menuContainerRef.current) {
+          const rect = menuContainerRef.current.getBoundingClientRect();
+          // 这里我们假设如果Popper已经打开，用户可能仍在菜单区域
+          if (popperOpen || hiddenItems.length > 0) {
+            console.log("隐藏项变化，检查是否需要显示Popper");
+            // 可以根据需要决定是否自动显示
+          }
+        }
+      };
+
+      checkMousePosition();
+    } else if (hiddenItems.length === 0 && popperOpen) {
+      // 如果没有隐藏项了，关闭Popper
+      console.log("没有隐藏项，关闭Popper");
+      clearHideTimer();
+      setPopperOpen(false);
+    }
+  }, [hiddenItems.length, enableResponsiveLayout]);
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      clearHideTimer();
+    };
+  }, []);
 
   if (!editor) {
     return null;
@@ -401,7 +458,7 @@ const MenuBar: React.FC<MenuBarProps> = ({
         <Popper
           open={popperOpen}
           anchorEl={popperAnchor}
-          placement="bottom-start"
+          placement="bottom"
           style={{ zIndex: 1300 }}
         >
           <ClickAwayListener onClickAway={handleClickAway}>
