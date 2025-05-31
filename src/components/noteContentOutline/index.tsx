@@ -377,6 +377,7 @@ export default function BasicTabs({
                 setWorksList={setWorksList}
                 setCurrentEditor={setCurrentEditor}
                 setActiveRichTextEditor={setActiveRichTextEditor}
+                enableResponsiveLayout={true}
               />
             </TabPanel>
           ))}

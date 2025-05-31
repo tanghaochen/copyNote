@@ -356,6 +356,7 @@ const TextHighlighter: React.FC<HighlightProps> = ({
                     label: activeKeyword || "笔记标题",
                   }}
                   isShowHeading={true}
+                  enableResponsiveLayout={true}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
