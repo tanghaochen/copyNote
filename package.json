@@ -76,7 +76,7 @@
     "electron-chrome-web-store": "^0.8.1",
     "electron-log": "^5.4.0",
     "electron-updater": "^6.3.9",
-    "flexsearch": "^0.7.43",
+    "flexsearch": "^0.8.205",
     "framer-motion": "^12.5.0",
     "html-to-text": "^9.0.5",
     "lowlight": "^3.3.0",
